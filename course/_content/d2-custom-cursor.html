@@ -1,0 +1,110 @@
+<!--lead: Replace the arrow with something alive: a dot that tracks instantly and a ring that trails with weight, growing and snapping to buttons while they lean toward your hand. This single interaction signals "premium" before a user reads a word.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    The bespoke cursor is the calling card of high-end portfolio and agency sites. Done
+    well it's three ideas working together: a precise dot that follows the pointer
+    exactly, a larger ring that <em>lags</em> behind with inertia, and a
+    <strong>magnetic field</strong> where interactive elements pull toward the cursor as
+    it nears them. We scope ours to a single area so it never fights the rest of the page.
+  </p>
+
+  <h2>Move around — hover the targets</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · custom cursor &amp; magnetism</span>
+      <div id="cursor-demo" style="width:100%;height:340px"></div>
+    </div>
+    <!--code file="fx/CustomCursor.svelte" name="src/lib/CustomCursor.svelte"-->
+  </div>
+
+  <h2>The mechanics</h2>
+  <ul>
+    <li><strong>Two followers, two speeds.</strong> The dot is set to the pointer position
+      every frame (instant). The ring eases toward it with
+      <code>current += (target - current) * 0.2</code> — that lerp is the "weight." Two
+      elements, two follow speeds, and the cursor suddenly feels physical.</li>
+    <li><strong>Snap to targets.</strong> When the pointer is over a
+      <code>.target</code>, the ring's goal switches from the pointer to the target's
+      <em>center</em> and it scales up — so it appears to lock onto the button. This is the
+      "I can click this" affordance, made delightful.</li>
+    <li><strong>Magnetic lean.</strong> The hovered target itself translates a fraction of
+      the way toward the pointer (<code>(pointer - center) * 0.3</code>), with a springy
+      CSS transition so it glides back on exit. Cursor and target reach for each other.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Don't hide the real cursor everywhere.</strong> Setting
+      <code>cursor: none</code> globally is an accessibility and usability risk —
+      touch users get nothing, and a laggy custom cursor on a whole page feels broken if
+      anything stutters. Scope it to a hero or a gallery (as here), keep a fallback, and
+      make sure keyboard focus styles are still excellent. A custom cursor is a flourish
+      for pointer users, never a replacement for accessible interaction.
+    </div>
+  </div>
+
+  <p>
+    From this base you can branch endlessly: invert the cursor's colour over images with
+    <code>mix-blend-mode: difference</code>, morph the ring into a "view" or "drag" label
+    over specific elements, leave a fading trail of dots, or distort a WebGL scene at the
+    cursor's position (you built exactly that in the distortion lesson). The cursor is a
+    canvas of its own.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("cursor-demo");
+    if (!mount) return;
+    if (!document.getElementById("cc-kf")) {
+      var st = document.createElement("style");
+      st.id = "cc-kf";
+      st.textContent =
+        ".cc-scene{position:relative;width:100%;height:100%;display:grid;place-items:center;overflow:hidden;border-radius:12px;background:radial-gradient(80% 80% at 50% 40%,#11122a,#05060a);cursor:none}" +
+        ".cc-dot,.cc-ring{position:absolute;top:0;left:0;pointer-events:none;border-radius:50%;will-change:transform}" +
+        ".cc-dot{width:8px;height:8px;background:#19e3d6;box-shadow:0 0 10px #19e3d6;z-index:3}" +
+        ".cc-ring{width:42px;height:42px;border:1.5px solid color-mix(in oklab,#7c5cff 70%,transparent);transition:width .2s,height .2s;z-index:2}" +
+        ".cc-targets{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}" +
+        ".cc-target{padding:.9rem 1.6rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#f4f6fb;font-weight:650;cursor:none;transition:transform .4s cubic-bezier(.16,1,.3,1),border-color .3s}" +
+        ".cc-target:hover{border-color:#7c5cff}" +
+        ".cc-hint{position:absolute;top:1rem;color:#5b6478;font-size:.8rem;pointer-events:none}";
+      document.head.appendChild(st);
+    }
+    mount.innerHTML =
+      '<div class="cc-scene"><div class="cc-dot"></div><div class="cc-ring"></div>' +
+      '<p class="cc-hint">move around — hover the targets</p>' +
+      '<div class="cc-targets"><button class="cc-target">Explore</button><button class="cc-target">Projects</button><button class="cc-target">Contact</button></div></div>';
+
+    var sceneEl = mount.querySelector(".cc-scene");
+    var dot = mount.querySelector(".cc-dot");
+    var ring = mount.querySelector(".cc-ring");
+    var reduce = window.MOTION_REDUCED;
+    var mx = 0, my = 0, rx = 0, ry = 0, hovering = false, stick = null, cur = null;
+    function resetTarget() { if (cur) cur.style.transform = ""; cur = null; }
+    sceneEl.addEventListener("pointermove", function (e) {
+      var r = sceneEl.getBoundingClientRect();
+      mx = e.clientX - r.left; my = e.clientY - r.top;
+      var t = e.target.closest(".cc-target");
+      if (t) {
+        var tr = t.getBoundingClientRect();
+        var cx = tr.left - r.left + tr.width / 2, cy = tr.top - r.top + tr.height / 2;
+        hovering = true; stick = { x: cx, y: cy };
+        if (cur && cur !== t) resetTarget();
+        cur = t;
+        if (!reduce) t.style.transform = "translate(" + (mx - cx) * 0.3 + "px," + (my - cy) * 0.3 + "px)";
+      } else { hovering = false; stick = null; resetTarget(); }
+    });
+    sceneEl.addEventListener("pointerleave", function () { hovering = false; stick = null; resetTarget(); });
+    function loop() {
+      var tx = stick ? stick.x : mx, ty = stick ? stick.y : my;
+      var k = reduce ? 1 : 0.2;
+      rx += (tx - rx) * k; ry += (ty - ry) * k;
+      ring.style.transform = "translate(" + rx + "px," + ry + "px) translate(-50%,-50%) scale(" + (hovering ? 1.9 : 1) + ")";
+      dot.style.transform = "translate(" + mx + "px," + my + "px) translate(-50%,-50%)";
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+</script>

@@ -1,0 +1,93 @@
+<!--lead: Liquid blobs that merge and split like mercury — metaballs are organic-motion's greatest hit. The trick is beautiful: there are no "blobs" at all, just a continuous field with a threshold. And your cursor is part of it.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Metaballs look like soft, gooey droplets that fuse when they touch and stretch apart
+    when they separate. The secret is that they're not objects — they're a
+    <strong>scalar field</strong>. Every "ball" adds an inverse-square falloff to every
+    pixel; wherever the summed field crosses a threshold, we draw liquid. Two balls near
+    each other push the combined field over the threshold in the gap between them, so
+    they appear to <em>merge</em>. Pure math, rendered per-pixel on the GPU.
+  </p>
+
+  <h2>Stir it with your cursor</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGL · move the cursor through it</span>
+      <canvas id="meta-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/Metaballs.svelte" name="src/lib/Metaballs.svelte"-->
+  </div>
+
+  <h2>The field, the threshold, the rim</h2>
+  <ul>
+    <li><strong>The field.</strong> For each ball at center <code>c</code> with radius
+      <code>r</code>, add <code>r² / distance²</code> to the pixel's field value. Close to
+      a ball that's huge; far away it's tiny. Sum over all balls (the cursor included) and
+      you have one smooth landscape.</li>
+    <li><strong>The threshold.</strong> <code>smoothstep(0.95, 1.08, field)</code> picks
+      the surface: below it is background, above it is liquid, and the narrow band between
+      gives a clean anti-aliased edge. Move the threshold and the blobs grow or shrink.</li>
+    <li><strong>The rim glow.</strong> A second, thinner <code>smoothstep</code> band
+      right at the surface adds a luminous edge — the touch that makes it read as molten
+      metal or plasma rather than flat paint.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Mind the aspect ratio.</strong> A plane's UVs run 0→1 on both axes, so on a
+      wide canvas your round balls become ovals. Multiply the x-component of every distance
+      by <code>canvasWidth / canvasHeight</code> (a <code>uAspect</code> uniform) and they
+      stay perfectly circular. This same gotcha bites every full-screen shader effect — fix
+      it once and remember it forever.
+    </div>
+  </div>
+
+  <p>
+    The 2D version powers gooey menus, liquid loaders and blobby backgrounds. The exact
+    same idea in 3D (a field sampled in a volume, surfaced with marching cubes) is how you
+    get morphing liquid-metal sculptures. And the SVG "goo" filter
+    (<code>feGaussianBlur</code> + <code>feColorMatrix</code>) is the no-WebGL cousin for
+    simple cases. Threshold a field — it's one of the most reusable ideas in all of
+    generative graphics.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("meta-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = { uTime: { value: 0 }, uAspect: { value: 1 }, uMouse: { value: new THREE.Vector2(0.5, 0.5) }, uMouseOn: { value: 0 } };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader:
+        "uniform float uTime; uniform float uAspect; uniform vec2 uMouse; uniform float uMouseOn; varying vec2 vUv;" +
+        "void main(){ vec2 uv=vUv; float field=0.0; for(int i=0;i<6;i++){ float fi=float(i); vec2 c=vec2(0.5)+vec2(cos(uTime*0.6+fi*1.7),sin(uTime*0.8+fi*2.3))*0.32; float r=0.07+0.02*sin(uTime+fi); vec2 d=uv-c; d.x*=uAspect; field+=(r*r)/dot(d,d); } vec2 dm=uv-uMouse; dm.x*=uAspect; field+=uMouseOn*0.012/(dot(dm,dm)+0.0002); float m=smoothstep(0.95,1.08,field); vec3 inner=mix(vec3(0.486,0.36,1.0),vec3(0.098,0.89,0.839),clamp(field*0.25,0.0,1.0)); vec3 col=mix(vec3(0.02,0.025,0.04),inner,m); float rim=smoothstep(0.86,0.97,field)*(1.0-smoothstep(1.04,1.18,field)); col+=rim*vec3(0.35,0.6,1.0)*0.6; gl_FragColor=vec4(col,1.0); }"
+    });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+    let target = 0;
+    canvas.addEventListener("pointermove", (e) => {
+      const r = canvas.getBoundingClientRect();
+      uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height);
+    });
+    canvas.addEventListener("pointerenter", () => (target = 1));
+    canvas.addEventListener("pointerleave", () => (target = 0));
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); uniforms.uAspect.value = canvas.clientWidth / canvas.clientHeight; }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() {
+      uniforms.uTime.value = reduce ? 2.0 : clock.getElapsedTime();
+      uniforms.uMouseOn.value += (target - uniforms.uMouseOn.value) * 0.1;
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>

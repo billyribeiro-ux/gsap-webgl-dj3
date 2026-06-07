@@ -71,6 +71,10 @@ const LIBS = {
   "c3-gpu-particles": ["three"],
   "c4-postprocessing": ["three"],
   "c5-scroll-skew": [],
+  "d0-image-transition": ["three"],
+  "d1-metaballs": ["three"],
+  "d2-custom-cursor": [],
+  "d3-audio-reactive": ["three"],
   "00-welcome": [],
   "01-principles-of-motion": []
 };

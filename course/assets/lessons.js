@@ -139,6 +139,17 @@ window.COURSE = {
         { slug: "c4-postprocessing", title: "Postprocessing — Bloom & Chromatic Aberration", status: "live" },
         { slug: "c5-scroll-skew", title: "Inertia Scroll & Velocity Skew", status: "live" }
       ]
+    },
+    {
+      num: "M13",
+      title: "The Frontier",
+      desc: "Signature WebGL & interaction — the effects on the web's most awarded sites.",
+      lessons: [
+        { slug: "d0-image-transition", title: "WebGL Image-to-Image Transition", status: "live" },
+        { slug: "d1-metaballs", title: "Fluid Metaballs", status: "live" },
+        { slug: "d2-custom-cursor", title: "Custom Cursor & Magnetic Field", status: "live" },
+        { slug: "d3-audio-reactive", title: "Audio-Reactive Shader", status: "live" }
+      ]
     }
   ]
 };

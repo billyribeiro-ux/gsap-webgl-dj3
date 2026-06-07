@@ -44,7 +44,11 @@ export const lessons: Lesson[] = [
   { slug: 'distortion', title: 'Hover Distortion', module: 'Cinematic FX', blurb: 'A shader that warps to the cursor.' },
   { slug: 'particles', title: 'GPU Particles', module: 'Cinematic FX', blurb: 'Morphing point cloud, 6k strong.' },
   { slug: 'bloom', title: 'Bloom & Aberration', module: 'Cinematic FX', blurb: 'The EffectComposer cinematic grade.' },
-  { slug: 'scroll-skew', title: 'Velocity Skew', module: 'Cinematic FX', blurb: 'Inertia scroll that shears with speed.' }
+  { slug: 'scroll-skew', title: 'Velocity Skew', module: 'Cinematic FX', blurb: 'Inertia scroll that shears with speed.' },
+  { slug: 'image-transition', title: 'Image Transition', module: 'Frontier', blurb: 'WebGL melt between two scenes.' },
+  { slug: 'metaballs', title: 'Fluid Metaballs', module: 'Frontier', blurb: 'A GPU field that merges and splits.' },
+  { slug: 'cursor', title: 'Magnetic Cursor', module: 'Frontier', blurb: 'Custom cursor with a magnetic field.' },
+  { slug: 'audio', title: 'Audio-Reactive', module: 'Frontier', blurb: 'A shader that dances to sound.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

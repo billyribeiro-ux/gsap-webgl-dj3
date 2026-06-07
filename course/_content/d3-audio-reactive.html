@@ -1,0 +1,119 @@
+<!--lead: Sound you can see. The Web Audio API hands you the live frequency spectrum every frame; feed it to a shader and your graphics breathe with the music. We synthesize an ambient track and let it drive a radial spectrum with a bass-pumping core.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Audio-reactive visuals are the heartbeat of music sites, live-stream overlays and
+    generative art. The bridge is the <strong>AnalyserNode</strong>: connect it into your
+    audio graph and each frame it gives you an array of frequency magnitudes — bass in the
+    low bins, highs at the top. Push that array into a texture and a fragment shader can
+    read it per-pixel. Hit play (we synthesize the sound, so there's nothing to download).
+  </p>
+
+  <h2>Press play — watch it react</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · Web Audio → GPU</span>
+      <div id="audio-demo" style="position:relative;width:100%;height:340px"></div>
+    </div>
+    <!--code file="fx/AudioReactive.svelte" name="src/lib/AudioReactive.svelte"-->
+  </div>
+
+  <h2>From soundwave to shader</h2>
+  <ul>
+    <li><strong>The analyser.</strong> <code>ctx.createAnalyser()</code> with
+      <code>fftSize = 256</code> yields 128 frequency bins. Call
+      <code>getByteFrequencyData(array)</code> once per frame to fill it with 0–255
+      magnitudes. Averaging the lowest few bins gives you a clean <em>bass</em> value —
+      the single most useful signal for "pump on the beat."</li>
+    <li><strong>The data texture.</strong> Copy those 128 bytes into a
+      <code>DataTexture</code> (128×1) and mark it <code>needsUpdate</code>. Now the GPU
+      can sample the spectrum: in the shader we map a pixel's <em>angle</em> to a bin and
+      read its magnitude, drawing a radial bar that long.</li>
+    <li><strong>The reaction.</strong> Bar length comes from the per-angle frequency; the
+      glowing core scales with bass. Two uniforms — a spectrum texture and a bass float —
+      and the whole scene dances. Swap the shader and the same data could drive particles,
+      displacement, or colour.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M210.3,56.34l-80-24A8,8,0,0,0,120,40V148.26A48,48,0,1,0,136,184V98.75l69.7,20.91A8,8,0,0,0,216,112V64A8,8,0,0,0,210.3,56.34Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Autoplay is blocked — and that's correct.</strong> Browsers won't let audio
+      start without a user gesture, so everything kicks off on the Play click (which also
+      <code>resume()</code>s the AudioContext). Always provide that explicit control, keep
+      the volume gentle, and tear the graph down on unmount — an AudioContext left open
+      keeps the audio hardware awake and drains battery. For real tracks, swap the
+      synthesized oscillators for a <code>&lt;audio&gt;</code> element routed through
+      <code>createMediaElementSource()</code>, or a microphone via
+      <code>getUserMedia</code> for a live visualizer.
+    </div>
+  </div>
+
+  <p>
+    You now have the full signal chain: synthesize or load sound → analyse it → texture →
+    shader. That's the same pipeline behind festival visuals and generative album art,
+    running in a browser tab at 60fps.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const mount = document.getElementById("audio-demo");
+  if (mount) {
+    const BINS = 128;
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "width:100%;height:100%;display:block;border-radius:12px;background:#05060a";
+    const btn = document.createElement("button");
+    btn.textContent = "▶ Play sound";
+    btn.style.cssText = "position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);padding:.6rem 1.4rem;border-radius:999px;border:none;font-weight:700;color:#05060a;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer";
+    mount.append(canvas, btn);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const data = new Uint8Array(BINS);
+    const texData = new Uint8Array(BINS);
+    const tex = new THREE.DataTexture(texData, BINS, 1, THREE.RedFormat); tex.needsUpdate = true;
+    const uniforms = { uData: { value: tex }, uBass: { value: 0 }, uAspect: { value: 1 } };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader: "uniform sampler2D uData; uniform float uBass; uniform float uAspect; varying vec2 vUv; void main(){ vec2 p=(vUv-0.5); p.x*=uAspect; float ang=atan(p.y,p.x)/6.2831853+0.5; float rad=length(p); float amp=texture2D(uData,vec2(ang,0.5)).r; float inner=0.16+uBass*0.05; float outer=inner+amp*0.26; float bar=smoothstep(inner-0.004,inner,rad)*(1.0-smoothstep(outer,outer+0.012,rad)); vec3 c=mix(vec3(0.486,0.36,1.0),vec3(0.098,0.89,0.839),amp); vec3 col=bar*c*1.4; col+=smoothstep(inner,inner-0.10,rad)*uBass*vec3(0.55,0.35,1.0); gl_FragColor=vec4(col,1.0); }"
+    });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); uniforms.uAspect.value = canvas.clientWidth / canvas.clientHeight; }
+    new ResizeObserver(resize).observe(canvas); resize();
+
+    let ctx = null, analyser = null, arp = null, stop = null, playing = false;
+    function start() {
+      ctx = new AudioContext();
+      const master = ctx.createGain(); master.gain.value = 0.05; master.connect(ctx.destination);
+      analyser = ctx.createAnalyser(); analyser.fftSize = BINS * 2; master.connect(analyser);
+      const filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 700; filter.Q.value = 6; filter.connect(master);
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
+      o1.type = "sawtooth"; o2.type = "sawtooth"; o2.detune.value = 9; o1.connect(filter); o2.connect(filter);
+      const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.15; lg.gain.value = 500; lfo.connect(lg).connect(filter.frequency);
+      o1.start(); o2.start(); lfo.start();
+      const notes = [110, 138.6, 164.8, 220, 164.8, 138.6]; let n = 0;
+      const step = () => { const f = notes[n % notes.length]; o1.frequency.setTargetAtTime(f, ctx.currentTime, 0.02); o2.frequency.setTargetAtTime(f * 1.5, ctx.currentTime, 0.02); n++; };
+      step(); arp = setInterval(step, 360);
+      stop = () => { o1.stop(); o2.stop(); lfo.stop(); };
+    }
+    function stopAll() { if (arp) clearInterval(arp); if (stop) stop(); if (ctx) ctx.close(); ctx = analyser = arp = stop = null; data.fill(0); }
+    btn.addEventListener("click", () => {
+      if (playing) { stopAll(); playing = false; btn.textContent = "▶ Play sound"; }
+      else { start(); playing = true; btn.textContent = "◼ Stop"; }
+    });
+
+    function tick() {
+      if (analyser) {
+        analyser.getByteFrequencyData(data); texData.set(data); tex.needsUpdate = true;
+        let bass = 0; for (let i = 0; i < 8; i++) bass += data[i]; uniforms.uBass.value = bass / (8 * 255);
+      } else { uniforms.uBass.value *= 0.9; }
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
