@@ -54,7 +54,9 @@ export const lessons: Lesson[] = [
   { slug: 'flow-field', title: 'GPGPU Particles', module: 'Bleeding Edge', blurb: '16k particles in a flow field.' },
   { slug: 'physics', title: 'Physics Playground', module: 'Bleeding Edge', blurb: 'Rigid bodies with cannon-es.' },
   { slug: 'webgpu', title: 'Hello WebGPU', module: 'WebGPU', blurb: 'Your first WGSL render pipeline.' },
-  { slug: 'webgpu-particles', title: 'A Million Particles', module: 'WebGPU', blurb: 'Compute shaders at full scale.' }
+  { slug: 'webgpu-particles', title: 'A Million Particles', module: 'WebGPU', blurb: 'Compute shaders at full scale.' },
+  { slug: 'boids', title: 'Compute Boids', module: 'WebGPU', blurb: 'Emergent flocking, one thread per bird.' },
+  { slug: 'nbody', title: 'N-Body Galaxy', module: 'WebGPU', blurb: 'All-pairs gravity forms spiral arms.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

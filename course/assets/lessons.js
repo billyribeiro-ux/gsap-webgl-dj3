@@ -168,7 +168,9 @@ window.COURSE = {
       desc: "The newest frontier: WGSL render pipelines and a million-particle compute shader.",
       lessons: [
         { slug: "f0-webgpu-intro", title: "Hello WebGPU — Your First Render Pipeline", status: "live" },
-        { slug: "f1-webgpu-particles", title: "A Million Particles with Compute Shaders", status: "live" }
+        { slug: "f1-webgpu-particles", title: "A Million Particles with Compute Shaders", status: "live" },
+        { slug: "f2-boids", title: "Compute Boids — Emergent Flocking", status: "live" },
+        { slug: "f3-nbody", title: "N-Body Gravity — A Galaxy Forms", status: "live" }
       ]
     }
   ]

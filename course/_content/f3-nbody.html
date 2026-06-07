@@ -1,0 +1,112 @@
+<!--lead: Four thousand stars, each pulling on every other, condensing a spinning disk into spiral arms. N-body gravity is the all-pairs problem — sixteen million calculations a frame — and the compute shader eats it for breakfast.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Gravity is simple between two bodies and ferociously expensive between many: every body
+    attracts every other, so the cost grows with the <em>square</em> of the count. That
+    <strong>O(n²)</strong> all-pairs structure is exactly what destroys CPUs and delights
+    GPUs. Here, 4,096 stars seeded as a spinning disk fall into each other's pull and
+    self-organize into the spiral structure of a galaxy — 16&nbsp;million force calculations
+    every single frame.
+  </p>
+
+  <h2>A galaxy, forming live</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU compute · N-body gravity</span>
+      <canvas id="nbody-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/NBody.svelte" name="src/lib/NBody.svelte"-->
+  </div>
+
+  <h2>The physics, the stability, the look</h2>
+  <ul>
+    <li><strong>Sum every pull.</strong> Each body's thread loops over all others, adding
+      <code>G·direction / distance²</code>. Integrate that acceleration into velocity, then
+      position. It's Newton, one line of WGSL, run 4,096 times in parallel.</li>
+    <li><strong>Softening prevents explosions.</strong> When two bodies get very close,
+      <code>1/distance²</code> rockets toward infinity and the sim blows up. Adding a small
+      <em>softening</em> term to the squared distance (<code>r² + ε</code>) keeps forces
+      finite — a standard astrophysics trick. A touch of velocity damping keeps it stable
+      over long runs.</li>
+    <li><strong>Seed for spiral arms.</strong> Bodies start in a disk with velocity
+      <em>perpendicular</em> to the centre (orbital motion). Too little speed and it collapses
+      to a point; too much and it flies apart; just right and you get rotating arms. Colour by
+      speed (cool → hot) and additive blending gives the luminous core.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Beyond brute force: the Barnes–Hut tree.</strong> Real astrophysics simulations
+      run <em>billions</em> of bodies, far past O(n²). The trick is to group distant stars and
+      treat each cluster as a single mass — a spatial tree (octree) that drops the cost to
+      O(n&nbsp;log&nbsp;n). Building and traversing that tree on the GPU is advanced
+      compute-shader territory, but the payoff is enormous. For thousands of bodies, though,
+      brute force is gloriously simple and runs at silky framerates — proof of how much raw
+      parallel muscle a compute shader brings.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("nbody-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var COUNT = 4096;
+    var computeWGSL =
+      "struct Body { pos: vec2f, vel: vec2f };" +
+      "struct U { count: u32, dt: f32, g: f32, soft: f32 };" +
+      "@group(0) @binding(0) var<storage, read> inB: array<Body>;" +
+      "@group(0) @binding(1) var<storage, read_write> outB: array<Body>;" +
+      "@group(0) @binding(2) var<uniform> u: U;" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) {" +
+      "  let i = gid.x; if (i >= u.count) { return; } let me = inB[i]; var acc = vec2f(0.0);" +
+      "  for (var j = 0u; j < u.count; j = j + 1u) { let d = inB[j].pos - me.pos; let r2 = dot(d,d) + u.soft; acc = acc + d * (u.g / (r2 * sqrt(r2))); }" +
+      "  var vel = (me.vel + acc * u.dt) * 0.9995; var pos = me.pos + vel * u.dt; outB[i] = Body(pos, vel); }";
+    var renderWGSL =
+      "struct Body { pos: vec2f, vel: vec2f };" +
+      "struct U { count: u32, dt: f32, g: f32, soft: f32 };" +
+      "@group(0) @binding(0) var<storage, read> bs: array<Body>; @group(0) @binding(1) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) col: vec3f };" +
+      "@vertex fn vs(@builtin(vertex_index) i: u32) -> VO { let b = bs[i]; var o: VO; o.pos = vec4f(b.pos, 0.0, 1.0); let s = clamp(length(b.vel)*1.4, 0.0, 1.0); o.col = mix(vec3f(0.486,0.36,1.0), vec3f(1.0,0.85,0.55), s); return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { return vec4f(in.col, 1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var data = new Float32Array(COUNT * 4);
+      for (var i = 0; i < COUNT; i++) { var a = Math.random() * Math.PI * 2; var r = Math.sqrt(Math.random()) * 0.7; var x = Math.cos(a) * r, y = Math.sin(a) * r; var sp = 0.35 * Math.sqrt(r + 0.05); data[i*4]=x; data[i*4+1]=y; data[i*4+2]=-Math.sin(a)*sp; data[i*4+3]=Math.cos(a)*sp; }
+      function makeBuf(init) { var b = device.createBuffer({ size: COUNT * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST, mappedAtCreation: !!init }); if (init) { new Float32Array(b.getMappedRange()).set(init); b.unmap(); } return b; }
+      var buf = [makeBuf(data), makeBuf(null)];
+      var uni = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      var ub = new ArrayBuffer(16), u32 = new Uint32Array(ub), f32 = new Float32Array(ub);
+      var cMod = device.createShaderModule({ code: computeWGSL }), rMod = device.createShaderModule({ code: renderWGSL });
+      var cPipe = device.createComputePipeline({ layout: "auto", compute: { module: cMod, entryPoint: "main" } });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format, blend: { color: { srcFactor: "one", dstFactor: "one", operation: "add" }, alpha: { srcFactor: "one", dstFactor: "one", operation: "add" } } }] }, primitive: { topology: "point-list" } });
+      var cBind = [
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: buf[1] } }, { binding: 2, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: buf[0] } }, { binding: 2, resource: { buffer: uni } }] })];
+      var rBind = [
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: uni } }] })];
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var ping = 0;
+      function frame() {
+        u32[0] = COUNT; f32[1] = 0.0016; f32[2] = 0.00012; f32[3] = 0.0009;
+        device.queue.writeBuffer(uni, 0, ub);
+        var enc = device.createCommandEncoder();
+        var cp = enc.beginComputePass(); cp.setPipeline(cPipe); cp.setBindGroup(0, cBind[ping]); cp.dispatchWorkgroups(Math.ceil(COUNT / 64)); cp.end();
+        var w = 1 - ping;
+        var rp = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.015, g: 0.015, b: 0.03, a: 1 } }] });
+        rp.setPipeline(rPipe); rp.setBindGroup(0, rBind[w]); rp.draw(COUNT); rp.end();
+        device.queue.submit([enc.finish()]); ping = w; requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>

@@ -1,0 +1,116 @@
+<!--lead: Three simple rules — don't crowd, match your neighbours, stay together — and a flock emerges. Boids is the classic demonstration of emergence, and it maps perfectly onto a compute shader: one thread per bird, reading its neighbours.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    In 1986 Craig Reynolds showed that lifelike flocking needs no leader and no global
+    plan — just three local rules per bird: <strong>separation</strong> (avoid crowding),
+    <strong>alignment</strong> (steer like your neighbours), and <strong>cohesion</strong>
+    (move toward the local centre). It's the textbook example of <em>emergence</em>, and
+    it's a perfect fit for compute: launch one GPU thread per bird, let each scan the flock,
+    and complex behaviour falls out of simple math.
+  </p>
+
+  <h2>1,500 birds, no leader</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU compute · flocking</span>
+      <canvas id="boids-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/Boids.svelte" name="src/lib/Boids.svelte"-->
+  </div>
+
+  <h2>One thread per agent, reading the others</h2>
+  <ul>
+    <li><strong>The loop is the simulation.</strong> Each bird's thread loops over the
+      whole flock, accumulating the three steering forces from neighbours within a radius.
+      At 1,500 birds that's ~2.25&nbsp;million interactions per frame — nothing for the GPU,
+      impossible to keep smooth on the CPU.</li>
+    <li><strong>Double-buffer the state.</strong> Every bird must read the <em>same</em>
+      snapshot of the flock, so we read from last frame's buffer and write to a second one,
+      then swap. Update in place and birds would see half-updated neighbours — the
+      simulation would shear. This read-old / write-new discipline is fundamental to all
+      agent simulations.</li>
+    <li><strong>Render straight from the buffer.</strong> An instanced draw makes a little
+      oriented triangle per bird, the vertex shader reading each bird's position and pointing
+      it along its velocity. No CPU-side geometry updates — the data never leaves the GPU.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The O(n²) ceiling — and how the pros break it.</strong> Every-bird-reads-every-
+      bird is fine into the low thousands, but it grows with the square of the count. To reach
+      hundreds of thousands, you add a <em>spatial grid</em>: a compute pass bins agents into
+      cells, and each bird only checks its own cell and the neighbours — turning O(n²) into
+      roughly O(n). That grid-build is itself a compute-shader exercise (counting, prefix-sum,
+      scatter). The same neighbour-search powers crowd simulation, particles with collisions,
+      and SPH fluids.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("boids-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var COUNT = 1500;
+    var computeWGSL =
+      "struct B { pos: vec2f, vel: vec2f };" +
+      "struct U { count: u32, dt: f32, aspect: f32, _p: f32 };" +
+      "@group(0) @binding(0) var<storage, read> inB: array<B>;" +
+      "@group(0) @binding(1) var<storage, read_write> outB: array<B>;" +
+      "@group(0) @binding(2) var<uniform> u: U;" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) {" +
+      "  let i = gid.x; if (i >= u.count) { return; } let me = inB[i];" +
+      "  var sep = vec2f(0.0); var ali = vec2f(0.0); var coh = vec2f(0.0); var nA = 0.0; var nC = 0.0;" +
+      "  for (var j = 0u; j < u.count; j = j + 1u) { if (j == i) { continue; } let o = inB[j]; var d = o.pos - me.pos; d.x = d.x * u.aspect; let dist = length(d);" +
+      "    if (dist < 0.03) { sep = sep - (o.pos - me.pos); } if (dist < 0.07) { ali = ali + o.vel; coh = coh + o.pos; nA = nA + 1.0; nC = nC + 1.0; } }" +
+      "  var vel = me.vel + sep * 1.4; if (nA > 0.0) { vel = vel + (ali / nA - me.vel) * 0.06; } if (nC > 0.0) { vel = vel + (coh / nC - me.pos) * 0.5; }" +
+      "  let sp = length(vel); if (sp > 0.006) { vel = vel / sp * 0.006; } if (sp < 0.0032 && sp > 0.0) { vel = vel / sp * 0.0032; }" +
+      "  var pos = me.pos + vel; if (pos.x > 1.0) { pos.x = -1.0; } if (pos.x < -1.0) { pos.x = 1.0; } if (pos.y > 1.0) { pos.y = -1.0; } if (pos.y < -1.0) { pos.y = 1.0; } outB[i] = B(pos, vel); }";
+    var renderWGSL =
+      "struct B { pos: vec2f, vel: vec2f };" +
+      "struct U { count: u32, dt: f32, aspect: f32, _p: f32 };" +
+      "@group(0) @binding(0) var<storage, read> bs: array<B>; @group(0) @binding(1) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) col: vec3f };" +
+      "@vertex fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VO { let b = bs[ii]; let dir = normalize(b.vel + vec2f(1e-6,0.0)); let perp = vec2f(-dir.y, dir.x); let s = 0.014; var local = dir * s; if (vi == 1u) { local = -dir*s*0.6 + perp*s*0.5; } if (vi == 2u) { local = -dir*s*0.6 - perp*s*0.5; } local.x = local.x / u.aspect; var o: VO; o.pos = vec4f(b.pos + local, 0.0, 1.0); o.col = mix(vec3f(0.486,0.36,1.0), vec3f(0.098,0.89,0.839), clamp(length(b.vel)*120.0,0.0,1.0)); return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { return vec4f(in.col, 1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var data = new Float32Array(COUNT * 4);
+      for (var i = 0; i < COUNT; i++) { var a = Math.random() * Math.PI * 2; data[i*4]=Math.random()*2-1; data[i*4+1]=Math.random()*2-1; data[i*4+2]=Math.cos(a)*0.004; data[i*4+3]=Math.sin(a)*0.004; }
+      function makeBuf(init) { var b = device.createBuffer({ size: COUNT * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST, mappedAtCreation: !!init }); if (init) { new Float32Array(b.getMappedRange()).set(init); b.unmap(); } return b; }
+      var buf = [makeBuf(data), makeBuf(null)];
+      var uni = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      var ub = new ArrayBuffer(16), u32 = new Uint32Array(ub), f32 = new Float32Array(ub);
+      var cMod = device.createShaderModule({ code: computeWGSL }), rMod = device.createShaderModule({ code: renderWGSL });
+      var cPipe = device.createComputePipeline({ layout: "auto", compute: { module: cMod, entryPoint: "main" } });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      var cBind = [
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: buf[1] } }, { binding: 2, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: buf[0] } }, { binding: 2, resource: { buffer: uni } }] })];
+      var rBind = [
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: uni } }] })];
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var ping = 0;
+      function frame() {
+        u32[0] = COUNT; f32[1] = 0.016; f32[2] = canvas.clientWidth / canvas.clientHeight;
+        device.queue.writeBuffer(uni, 0, ub);
+        var enc = device.createCommandEncoder();
+        var cp = enc.beginComputePass(); cp.setPipeline(cPipe); cp.setBindGroup(0, cBind[ping]); cp.dispatchWorkgroups(Math.ceil(COUNT / 64)); cp.end();
+        var w = 1 - ping;
+        var rp = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.02, g: 0.025, b: 0.045, a: 1 } }] });
+        rp.setPipeline(rPipe); rp.setBindGroup(0, rBind[w]); rp.draw(3, COUNT); rp.end();
+        device.queue.submit([enc.finish()]); ping = w; requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>
