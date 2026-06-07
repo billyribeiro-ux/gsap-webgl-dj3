@@ -52,7 +52,9 @@ export const lessons: Lesson[] = [
   { slug: 'raymarch', title: 'Raymarched SDF', module: 'Bleeding Edge', blurb: 'A 3D world from one shader.' },
   { slug: 'reaction-diffusion', title: 'Reaction-Diffusion', module: 'Bleeding Edge', blurb: 'A living GPU simulation.' },
   { slug: 'flow-field', title: 'GPGPU Particles', module: 'Bleeding Edge', blurb: '16k particles in a flow field.' },
-  { slug: 'physics', title: 'Physics Playground', module: 'Bleeding Edge', blurb: 'Rigid bodies with cannon-es.' }
+  { slug: 'physics', title: 'Physics Playground', module: 'Bleeding Edge', blurb: 'Rigid bodies with cannon-es.' },
+  { slug: 'webgpu', title: 'Hello WebGPU', module: 'WebGPU', blurb: 'Your first WGSL render pipeline.' },
+  { slug: 'webgpu-particles', title: 'A Million Particles', module: 'WebGPU', blurb: 'Compute shaders at full scale.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

@@ -23,6 +23,7 @@
     "@types/d3": "^7.4.3",
     "@types/node": "^24.0.0",
     "@types/three": "^0.184.1",
+    "@webgpu/types": "^0.1.70",
     "svelte": "^5.56.2",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",

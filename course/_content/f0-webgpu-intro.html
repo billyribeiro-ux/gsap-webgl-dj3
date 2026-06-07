@@ -1,0 +1,105 @@
+<!--lead: WebGPU is the successor to WebGL — a modern, explicit graphics API that finally brings compute shaders to the browser. Let's meet it with the smallest possible program: a render pipeline drawing an animated WGSL aurora.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    WebGL served the web for a decade, but it's an old API bolted onto the browser.
+    <strong>WebGPU</strong> is the clean-sheet replacement: lower-level, more predictable,
+    multi-threaded under the hood, and — crucially — it exposes <em>compute shaders</em>,
+    the key to simulating millions of things in parallel. Its shading language is
+    <strong>WGSL</strong>, a tidy, Rust-flavoured cousin of GLSL. This lesson is the
+    "hello world": the handful of objects every WebGPU app sets up.
+  </p>
+
+  <h2>Your first WebGPU frame</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU render pipeline</span>
+      <canvas id="wg-hello" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/WebGPUHello.svelte" name="src/lib/WebGPUHello.svelte"-->
+  </div>
+
+  <h2>The WebGPU starter objects</h2>
+  <ul>
+    <li><strong>Adapter → Device.</strong> <code>navigator.gpu.requestAdapter()</code>
+      picks a GPU; <code>adapter.requestDevice()</code> opens a connection to it. The
+      <code>device</code> is your handle for creating everything else. (Both are async —
+      and you must feature-detect <code>navigator.gpu</code> first.)</li>
+    <li><strong>Configure the canvas.</strong> A <code>'webgpu'</code> context is told
+      which device and texture format to use. Each frame you grab its current texture as
+      the thing you render into.</li>
+    <li><strong>A pipeline = compiled shaders + state.</strong> The render pipeline bundles
+      your WGSL vertex + fragment entry points and the output format. We draw a single
+      fullscreen triangle (three vertices generated in the shader from
+      <code>vertex_index</code>) and colour it in the fragment shader.</li>
+    <li><strong>Command encoder → submit.</strong> WebGPU is explicit: you record commands
+      (begin a render pass, set the pipeline, draw) into an encoder, then
+      <code>submit</code> the finished buffer to the device queue. Nothing happens until you
+      submit. More verbose than WebGL — and far more predictable.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Always ship a fallback.</strong> WebGPU is in modern Chrome, Edge and Safari,
+      but not everywhere yet. Guard with <code>if (!navigator.gpu)</code> and degrade
+      gracefully — a WebGL version, a static image, or at minimum a message (this demo
+      paints one with a 2D canvas). In TypeScript, install <code>@webgpu/types</code> so
+      <code>GPUDevice</code>, <code>GPUCanvasContext</code> and friends are typed. Treat
+      WebGPU as a progressive enhancement today, the default tomorrow.
+    </div>
+  </div>
+
+  <p>
+    That's a lot of ceremony to draw a gradient — but every object here (device, pipeline,
+    bind group, command encoder) is exactly what you'll reuse to unleash a
+    <em>compute</em> shader in the next lesson. The boilerplate is the investment; the
+    payoff is a million particles.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("wg-hello");
+    if (!canvas) return;
+    function fallback(msg) {
+      var c = canvas.getContext("2d"); if (!c) return;
+      canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+      c.fillStyle = "#0a0c14"; c.fillRect(0, 0, canvas.width, canvas.height);
+      c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace, monospace"; c.textAlign = "center";
+      c.fillText(msg, canvas.width / 2, canvas.height / 2);
+    }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var shader =
+      "struct U { time: f32, _pad: f32 };" +
+      "@group(0) @binding(0) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f };" +
+      "@vertex fn vs(@builtin(vertex_index) i: u32) -> VO { var p = array<vec2f,3>(vec2f(-1.0,-1.0), vec2f(3.0,-1.0), vec2f(-1.0,3.0)); var o: VO; o.pos = vec4f(p[i],0.0,1.0); o.uv = p[i]*0.5+0.5; return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { let uv=in.uv; let t=u.time; let v=(sin(uv.x*6.0+t)+sin(uv.y*7.0-t)+sin((uv.x+uv.y)*5.0+t*1.3))*0.33; let violet=vec3f(0.486,0.36,1.0); let cyan=vec3f(0.098,0.89,0.839); let pink=vec3f(1.0,0.373,0.62); var col=mix(violet,cyan,smoothstep(-1.0,1.0,v)); col=mix(col,pink,smoothstep(0.4,1.0,sin(uv.y*3.0+t))*0.6); return vec4f(col,1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu");
+      var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var module = device.createShaderModule({ code: shader });
+      var pipeline = device.createRenderPipeline({ layout: "auto", vertex: { module: module, entryPoint: "vs" }, fragment: { module: module, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      var uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      var bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }] });
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var start = performance.now();
+      var reduce = window.MOTION_REDUCED;
+      function frame() {
+        device.queue.writeBuffer(uniform, 0, new Float32Array([reduce ? 0.5 : (performance.now() - start) / 1000, 0]));
+        var enc = device.createCommandEncoder();
+        var pass = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.02, g: 0.025, b: 0.04, a: 1 } }] });
+        pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
+        device.queue.submit([enc.finish()]);
+        requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>

@@ -161,6 +161,15 @@ window.COURSE = {
         { slug: "e2-flow-field", title: "GPGPU Flow-Field Particles", status: "live" },
         { slug: "e3-physics", title: "A 3D Physics Playground", status: "live" }
       ]
+    },
+    {
+      num: "M15",
+      title: "WebGPU — The Very Edge",
+      desc: "The newest frontier: WGSL render pipelines and a million-particle compute shader.",
+      lessons: [
+        { slug: "f0-webgpu-intro", title: "Hello WebGPU — Your First Render Pipeline", status: "live" },
+        { slug: "f1-webgpu-particles", title: "A Million Particles with Compute Shaders", status: "live" }
+      ]
     }
   ]
 };
