@@ -59,7 +59,9 @@ export const lessons: Lesson[] = [
   { slug: 'nbody', title: 'N-Body Galaxy', module: 'WebGPU', blurb: 'All-pairs gravity forms spiral arms.' },
   { slug: 'game-of-life', title: "Conway's Life", module: 'WebGPU', blurb: 'Cellular automata on the GPU.' },
   { slug: 'slime', title: 'Slime Mould', module: 'WebGPU', blurb: '200k agents grow living networks.' },
-  { slug: 'fluid', title: 'Fluid Solver', module: 'WebGPU', blurb: 'Navier-Stokes ink in water.' }
+  { slug: 'fluid', title: 'Fluid Solver', module: 'WebGPU', blurb: 'Navier-Stokes ink in water.' },
+  { slug: 'volumetrics', title: 'Volumetric Clouds', module: 'The Abyss', blurb: 'Raymarched participating media.' },
+  { slug: 'pathtracer', title: 'Path Tracer', module: 'The Abyss', blurb: 'Real global illumination, live.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

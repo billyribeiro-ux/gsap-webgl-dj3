@@ -79,6 +79,8 @@ const LIBS = {
   "e1-reaction-diffusion": ["three"],
   "e2-flow-field": ["three"],
   "e3-physics": ["three", "cannon"],
+  "g0-volumetrics": ["three"],
+  "g1-pathtracer": [],
   "00-welcome": [],
   "01-principles-of-motion": []
 };

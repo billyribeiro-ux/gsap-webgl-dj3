@@ -1,0 +1,111 @@
+<!--lead: The deepest rendering technique there is: simulate the actual paths of light bouncing through a scene. A path tracer computes true global illumination — soft shadows, colour bleeding, reflections — the same algorithm Pixar uses, running live in your browser and refining in real time.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Every renderer you've used so far <em>fakes</em> lighting. A <strong>path tracer</strong>
+    doesn't: it traces the real journey of light, bouncing rays around the scene and letting
+    them pick up colour and shadow exactly as photons do. The result is true <strong>global
+    illumination</strong> — and it's how every modern film is rendered. The catch is noise:
+    one ray per pixel is grainy, so we fire one every frame and <strong>average thousands of
+    samples</strong> over a few seconds. Watch it resolve from static into a clean image.
+  </p>
+
+  <h2>Let it converge — drag to orbit</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU path tracer (give it a moment)</span>
+      <canvas id="pt-canvas" style="width:100%;height:360px;display:block"></canvas>
+    </div>
+    <!--code file="fx/PathTracer.svelte" name="src/lib/PathTracer.svelte"-->
+  </div>
+
+  <h2>How light is actually simulated</h2>
+  <ul>
+    <li><strong>Cast, bounce, repeat.</strong> For each pixel a ray leaves the camera. When
+      it hits a surface it picks a new random direction based on the material — a diffuse
+      surface scatters into the hemisphere, a metal reflects — and continues, up to ~6
+      bounces. Hit a light (an emissive sphere) and that energy travels back along the whole
+      path. This is the <em>rendering equation</em>, solved by Monte Carlo.</li>
+    <li><strong>Colour bleeding for free.</strong> Because rays literally bounce off coloured
+      surfaces, the red sphere tints its neighbours, the floor catches a glow from the light,
+      shadows are soft. None of it is faked — it falls out of simulating the physics.</li>
+    <li><strong>Progressive accumulation.</strong> One sample per pixel per frame is pure
+      noise. We <em>add</em> each frame's result into an accumulation buffer and divide by the
+      frame count, so the estimate gets cleaner every frame. Move the camera and we reset the
+      buffer — that's why it goes grainy then resolves again.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Noise is the enemy; convergence is the game.</strong> Every trick in production
+      path tracing exists to get a clean image in fewer samples: importance sampling (aim rays
+      where the light is), next-event estimation (sample lights directly), and — the modern
+      breakthrough — an AI <strong>denoiser</strong> that cleans a noisy 1-sample frame
+      instantly. Real-time ray tracing in games is exactly this: a handful of samples plus a
+      denoiser. You've just built the foundation of it, in WGSL, in a browser tab. There is
+      no deeper rendering technique — this is light itself, simulated. The medium has no floor
+      left for you to hit.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("pt-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var W = 512, H = 320, PIX = W * H;
+    var computeWGSL =
+      "struct U { w: u32, h: u32, frame: u32, reset: u32, yaw: f32, pitch: f32, _a: f32, _b: f32 };" +
+      "@group(0) @binding(0) var<storage, read_write> accum: array<vec4f>;" +
+      "@group(0) @binding(1) var<uniform> u: U;" +
+      "var<private> rng: u32;" +
+      "fn rand() -> f32 { rng=rng*747796405u+2891336453u; var w=((rng>>((rng>>28u)+4u))^rng)*277803737u; w=(w>>22u)^w; return f32(w)/4294967295.0; }" +
+      "fn randUnit() -> vec3f { let z=rand()*2.0-1.0; let a=rand()*6.2831853; let r=sqrt(max(0.0,1.0-z*z)); return vec3f(r*cos(a),r*sin(a),z); }" +
+      "struct Sphere { c: vec3f, r: f32, albedo: vec3f, mat: f32, emit: vec3f, fuzz: f32 };" +
+      "fn scene(i: i32) -> Sphere { if(i==0){return Sphere(vec3f(0.0,-1000.5,0.0),1000.0,vec3f(0.5,0.5,0.55),0.0,vec3f(0.0),0.0);} if(i==1){return Sphere(vec3f(-1.1,0.0,0.0),0.5,vec3f(0.9,0.3,0.4),0.0,vec3f(0.0),0.0);} if(i==2){return Sphere(vec3f(0.0,0.0,0.0),0.5,vec3f(0.95,0.95,1.0),1.0,vec3f(0.0),0.04);} if(i==3){return Sphere(vec3f(1.1,0.0,0.0),0.5,vec3f(0.3,0.55,0.95),0.0,vec3f(0.0),0.0);} return Sphere(vec3f(1.6,2.4,1.6),0.7,vec3f(0.0),2.0,vec3f(10.0,8.5,7.0),0.0); }" +
+      "fn hitSphere(ro: vec3f, rd: vec3f, s: Sphere) -> f32 { let oc=ro-s.c; let b=dot(oc,rd); let c=dot(oc,oc)-s.r*s.r; let disc=b*b-c; if(disc<0.0){return -1.0;} let sq=sqrt(disc); var t=-b-sq; if(t<0.001){t=-b+sq;} if(t<0.001){return -1.0;} return t; }" +
+      "fn sky(rd: vec3f) -> vec3f { let t=0.5*(rd.y+1.0); return mix(vec3f(0.10,0.12,0.16),vec3f(0.30,0.40,0.55),t)*0.6; }" +
+      "fn trace(ro0: vec3f, rd0: vec3f) -> vec3f { var ro=ro0; var rd=rd0; var col=vec3f(0.0); var thr=vec3f(1.0); for(var b=0;b<6;b=b+1){ var tb=1e30; var idx=-1; for(var i=0;i<5;i=i+1){ let t=hitSphere(ro,rd,scene(i)); if(t>0.0&&t<tb){tb=t;idx=i;} } if(idx<0){col=col+thr*sky(rd); break;} let s=scene(idx); let p=ro+rd*tb; let nrm=normalize(p-s.c); col=col+thr*s.emit; if(s.mat<0.5){ rd=normalize(nrm+randUnit()); thr=thr*s.albedo; } else if(s.mat<1.5){ rd=normalize(reflect(rd,nrm)+s.fuzz*randUnit()); thr=thr*s.albedo; if(dot(rd,nrm)<0.0){break;} } else { break; } ro=p+nrm*0.001; let m=max(thr.r,max(thr.g,thr.b)); if(m<0.02){break;} } return col; }" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) { let i=gid.x; if(i>=u.w*u.h){return;} rng=i*1973u+u.frame*9277u+26699u; rand(); rand(); let x=f32(i%u.w); let y=f32(i/u.w); let aspect=f32(u.w)/f32(u.h); let uv=(vec2f((x+rand())/f32(u.w),(y+rand())/f32(u.h))*2.0-1.0)*vec2f(aspect,1.0); let cy=cos(u.yaw); let sy=sin(u.yaw); let cp=cos(u.pitch); let sp=sin(u.pitch); let ro=vec3f(sy*cp,sp,cy*cp)*4.6; let fwd=normalize(-ro); let right=normalize(cross(fwd,vec3f(0.0,1.0,0.0))); let up=cross(right,fwd); let rd=normalize(fwd*1.5+right*uv.x+up*uv.y); let rad=trace(ro,rd); if(u.reset==1u){ accum[i]=vec4f(rad,1.0); } else { accum[i]=accum[i]+vec4f(rad,1.0); } }";
+    var renderWGSL =
+      "struct U { w: u32, h: u32, frame: u32, reset: u32, yaw: f32, pitch: f32, _a: f32, _b: f32 };" +
+      "@group(0) @binding(0) var<storage, read> accum: array<vec4f>; @group(0) @binding(1) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f };" +
+      "@vertex fn vs(@builtin(vertex_index) i: u32) -> VO { var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0)); var o: VO; o.pos=vec4f(p[i],0.0,1.0); o.uv=p[i]*0.5+0.5; return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { let xi=min(u32(in.uv.x*f32(u.w)),u.w-1u); let yi=min(u32((1.0-in.uv.y)*f32(u.h)),u.h-1u); let s=accum[yi*u.w+xi]; var col=s.rgb/max(s.a,1.0); col=col/(col+vec3f(1.0)); return vec4f(pow(col,vec3f(0.4545)),1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var accum = device.createBuffer({ size: PIX * 16, usage: GPUBufferUsage.STORAGE });
+      var uni = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      var cPipe = device.createComputePipeline({ layout: "auto", compute: { module: device.createShaderModule({ code: computeWGSL }), entryPoint: "main" } });
+      var rMod = device.createShaderModule({ code: renderWGSL });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      var cBind = device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: accum } }, { binding: 1, resource: { buffer: uni } }] });
+      var rBind = device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: accum } }, { binding: 1, resource: { buffer: uni } }] });
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var yaw = 0.6, pitch = 0.35, frame = 0, reset = 1, dragging = false, lx = 0, ly = 0;
+      canvas.addEventListener("pointerdown", function (e) { dragging = true; lx = e.clientX; ly = e.clientY; });
+      window.addEventListener("pointerup", function () { dragging = false; });
+      canvas.addEventListener("pointermove", function (e) { if (!dragging) return; yaw -= (e.clientX - lx) * 0.005; pitch = Math.max(-1.4, Math.min(1.4, pitch + (e.clientY - ly) * 0.005)); lx = e.clientX; ly = e.clientY; reset = 1; });
+      var ud = new ArrayBuffer(32), uU = new Uint32Array(ud), uF = new Float32Array(ud);
+      function frameFn() {
+        if (reset === 1) frame = 0; frame++;
+        uU[0] = W; uU[1] = H; uU[2] = frame; uU[3] = reset; uF[4] = yaw; uF[5] = pitch;
+        device.queue.writeBuffer(uni, 0, ud); reset = 0;
+        var enc = device.createCommandEncoder();
+        var cp = enc.beginComputePass(); cp.setPipeline(cPipe); cp.setBindGroup(0, cBind); cp.dispatchWorkgroups(Math.ceil(PIX / 64)); cp.end();
+        var rp = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0, g: 0, b: 0, a: 1 } }] });
+        rp.setPipeline(rPipe); rp.setBindGroup(0, rBind); rp.draw(3); rp.end();
+        device.queue.submit([enc.finish()]); requestAnimationFrame(frameFn);
+      }
+      frameFn();
+    })();
+  })();
+</script>

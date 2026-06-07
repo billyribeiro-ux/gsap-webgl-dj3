@@ -1,0 +1,79 @@
+<!--lead: Surfaces are easy; rendering the space *between* them is the frontier. Volumetric raymarching marches a ray through a cloud of density, gathering light at every step — the technique behind clouds, smoke, fog and god-rays.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Everything you've rendered in 3D so far has been a <em>surface</em>. But clouds, smoke,
+    fire and fog have no surface — they're <strong>participating media</strong>, volumes
+    where light is absorbed and scattered as it passes through. We render them by
+    <strong>raymarching</strong>: step a ray through the volume, sample the density at each
+    step, and accumulate how much light survives. It's the single most cinematic effect in
+    real-time graphics.
+  </p>
+
+  <h2>Drag to fly through the clouds</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · volumetric raymarching</span>
+      <canvas id="vol-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/Volumetric.svelte" name="src/lib/Volumetric.svelte"-->
+  </div>
+
+  <h2>Marching through density</h2>
+  <ul>
+    <li><strong>The density field.</strong> There's no geometry — the cloud is a math
+      function. We sample <em>fbm</em> (fractal noise) in 3D, confined to a band, and animate
+      it by scrolling the noise over time. That function <em>is</em> the cloud.</li>
+    <li><strong>The view march.</strong> Step the camera ray forward in small increments. At
+      each step, read the density and accumulate colour, while tracking
+      <strong>transmittance</strong> — how much light still gets through — which falls off by
+      Beer's law (<code>exp(-density · step)</code>). When transmittance hits zero, the cloud
+      is opaque and we stop early.</li>
+    <li><strong>The light march.</strong> The magic ingredient: at each view step, march a
+      few more steps <em>toward the sun</em> and accumulate density along the way. That gives
+      self-shadowing — the dark undersides and bright tops that make clouds read as solid,
+      volumetric form instead of flat fog.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>It's a quadratic cost — budget carefully.</strong> Every view step does a whole
+      light march, so cost is steps × light-steps per pixel. Keep both counts as low as the
+      look allows, cap the pixel ratio, and add early-out when the ray is fully absorbed.
+      Real productions add a phase function (Henyey–Greenstein) for forward-scattering glow,
+      blue-noise dithering to hide step banding, and temporal reprojection to amortise across
+      frames. But the core loop — march, sample density, march to light, accumulate — is
+      exactly this. You're now rendering the air itself.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("vol-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = { uTime: { value: 0 }, uAspect: { value: 1 }, uMouse: { value: new THREE.Vector2(0.5, 0.5) } };
+    const frag =
+      "uniform float uTime; uniform float uAspect; uniform vec2 uMouse; varying vec2 vUv;" +
+      "float hash(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }" +
+      "float noise(vec3 x){ vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f); return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }" +
+      "float fbm(vec3 p){ float v=0.0; float a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.02; a*=0.5; } return v; }" +
+      "float density(vec3 p,float t){ float slab=1.0-abs(p.y)/2.2; if(slab<=0.0)return 0.0; float n=fbm(p*0.6+vec3(t*0.12,0.0,t*0.05)); return clamp((n-0.52)*slab*2.2,0.0,1.0); }" +
+      "mat3 rotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.,-s,0.,1.,0.,s,0.,c); }" +
+      "void main(){ vec2 uv=(vUv-0.5); uv.x*=uAspect; mat3 rot=rotY(uTime*0.04+(uMouse.x-0.5)*2.5); vec3 ro=rot*vec3(0.0,0.0,6.0); vec3 rd=rot*normalize(vec3(uv,-1.5)); vec3 sun=normalize(vec3(0.7,0.5,-0.4)); vec3 col=mix(vec3(0.03,0.04,0.08),vec3(0.10,0.14,0.24),vUv.y); col+=pow(max(dot(rd,sun),0.0),64.0)*vec3(1.0,0.85,0.6); float t=1.5; float tr=1.0; vec3 sc=vec3(0.0); for(int i=0;i<60;i++){ vec3 p=ro+rd*t; float d=density(p,uTime); if(d>0.01){ float sh=1.0; for(int j=1;j<=5;j++){ float ld=density(p+sun*float(j)*0.22,uTime); sh*=exp(-ld*0.22*5.0); } float ab=exp(-d*0.25*4.0); vec3 li=vec3(1.0,0.92,0.78)*sh*2.4+vec3(0.25,0.35,0.55)*0.5; sc+=tr*(1.0-ab)*li; tr*=ab; if(tr<0.02)break; } t+=0.18; if(t>16.0)break; } col=col*tr+sc; col=col/(col+vec3(1.0)); gl_FragColor=vec4(pow(col,vec3(0.4545)),1.0); }";
+    const material = new THREE.ShaderMaterial({ uniforms, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }", fragmentShader: frag });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+    canvas.addEventListener("pointermove", (e) => { const r = canvas.getBoundingClientRect(); uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height); });
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); uniforms.uAspect.value = canvas.clientWidth / canvas.clientHeight; }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() { uniforms.uTime.value = reduce ? 4.0 : clock.getElapsedTime(); renderer.render(scene, camera); requestAnimationFrame(tick); }
+    tick();
+  }
+</script>

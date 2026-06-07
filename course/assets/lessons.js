@@ -175,6 +175,15 @@ window.COURSE = {
         { slug: "f5-slime-mould", title: "Slime Mould (Physarum) — Emergent Networks", status: "live" },
         { slug: "f6-fluid", title: "A Real-Time Fluid Solver (Navier-Stokes)", status: "live" }
       ]
+    },
+    {
+      num: "M16",
+      title: "The Abyss — Beyond Real-Time",
+      desc: "Rendering light itself: volumetric clouds and a progressive path tracer with true GI.",
+      lessons: [
+        { slug: "g0-volumetrics", title: "Volumetric Raymarching — Clouds & Light", status: "live" },
+        { slug: "g1-pathtracer", title: "A Real-Time Path Tracer — True Global Illumination", status: "live" }
+      ]
     }
   ]
 };
