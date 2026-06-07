@@ -170,7 +170,9 @@ window.COURSE = {
         { slug: "f0-webgpu-intro", title: "Hello WebGPU — Your First Render Pipeline", status: "live" },
         { slug: "f1-webgpu-particles", title: "A Million Particles with Compute Shaders", status: "live" },
         { slug: "f2-boids", title: "Compute Boids — Emergent Flocking", status: "live" },
-        { slug: "f3-nbody", title: "N-Body Gravity — A Galaxy Forms", status: "live" }
+        { slug: "f3-nbody", title: "N-Body Gravity — A Galaxy Forms", status: "live" },
+        { slug: "f4-game-of-life", title: "Conway's Game of Life on the GPU", status: "live" },
+        { slug: "f5-slime-mould", title: "Slime Mould (Physarum) — Emergent Networks", status: "live" }
       ]
     }
   ]

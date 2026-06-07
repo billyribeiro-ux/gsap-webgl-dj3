@@ -1,0 +1,125 @@
+<!--lead: 200,000 simple agents that sense, steer and deposit — and from those rules a slime mould grows living transport networks, the same ones real Physarum uses to solve mazes. The crown jewel of compute-shader art.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    This is the one. <strong>Physarum</strong> — slime mould — is a single-celled organism
+    that builds astonishingly efficient networks by following dead-simple local rules. In
+    2010 researchers let it grow on a map of Tokyo and it reproduced the rail network. We
+    can simulate it on the GPU: hundreds of thousands of agents, each sensing a chemical
+    trail ahead, steering toward the strongest scent, moving, and leaving more trail behind.
+    A second pass diffuses and fades the trail. From that loop, the colony self-organizes
+    into veined, breathing networks.
+  </p>
+
+  <h2>Watch the colony grow</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU compute · Physarum</span>
+      <canvas id="slime-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/SlimeMould.svelte" name="src/lib/SlimeMould.svelte"-->
+  </div>
+
+  <h2>Three passes, one emergent organism</h2>
+  <ul>
+    <li><strong>Agent pass.</strong> Each of the 200,000 agents samples the trail at three
+      points — front-left, front, front-right — and turns toward the strongest. It steps
+      forward and <em>deposits</em> trail at its new cell. Because thousands of agents may
+      land on the same cell, the deposit uses an <strong>atomic add</strong> so no
+      contribution is lost to a race.</li>
+    <li><strong>Diffuse pass.</strong> A second compute shader blurs the trail (a 3×3
+      average) and multiplies it by a decay factor, so trails spread softly and fade unless
+      reinforced. This is what turns scattered dots into smooth, branching veins.</li>
+    <li><strong>Render pass.</strong> The diffused field is written to a plain buffer a
+      fragment shader can read (atomics aren't readable in fragment stages), then mapped to a
+      colour ramp. Three passes per frame, all on the GPU.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Atomics are the key to shared-write simulations.</strong> Whenever many GPU
+      threads write to the same memory — depositing trail, binning into a grid, building a
+      histogram — you need <code>atomicAdd</code> / <code>atomicStore</code> to make those
+      writes safe. And note the read-side rule: atomic storage buffers are <em>compute-only</em>,
+      so we copy the diffused field into a plain buffer for the fragment shader to read.
+      Tuning four numbers — sensor distance &amp; angle, turn speed, decay — gives wildly
+      different organisms, from tight neural webs to loose, drifting clouds. This is generative
+      art and real biology in the same forty lines of WGSL.
+    </div>
+  </div>
+
+  <p>
+    You started this course easing a single hover. You're ending it orchestrating a quarter
+    of a million autonomous agents on the GPU to grow a living network. There is nothing on
+    the animated web you can't now reach for. Go make something only you would make.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("slime-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var W = 640, H = 360, CELLS = W * H, AGENTS = 200000;
+    var U = "struct U { w: u32, h: u32, count: u32, _p: u32, time: f32, sensorDist: f32, sensorAngle: f32, turnSpeed: f32, speed: f32, deposit: f32, decay: f32, _p2: f32 };";
+    var agentWGSL = U +
+      "struct Agent { pos: vec2f, angle: f32, pad: f32 };" +
+      "@group(0) @binding(0) var<storage, read_write> agents: array<Agent>;" +
+      "@group(0) @binding(1) var<storage, read_write> trail: array<atomic<u32>>;" +
+      "@group(0) @binding(2) var<uniform> u: U;" +
+      "fn samp(p: vec2f, ang: f32) -> f32 { let s=p+vec2f(cos(ang),sin(ang))*u.sensorDist; let xx=((i32(s.x)%i32(u.w))+i32(u.w))%i32(u.w); let yy=((i32(s.y)%i32(u.h))+i32(u.h))%i32(u.h); return f32(atomicLoad(&trail[u32(yy)*u.w+u32(xx)])); }" +
+      "fn hash(seed: u32) -> f32 { var x=seed; x=x^(x>>16u); x=x*2246822519u; x=x^(x>>13u); x=x*3266489917u; x=x^(x>>16u); return f32(x)/4294967295.0; }" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) { let i=gid.x; if(i>=u.count){return;} var a=agents[i]; let fwd=samp(a.pos,a.angle); let left=samp(a.pos,a.angle-u.sensorAngle); let right=samp(a.pos,a.angle+u.sensorAngle); let rnd=hash(i+u32(u.time*60.0)); if(fwd>left&&fwd>right){} else if(fwd<left&&fwd<right){ if(rnd<0.5){a.angle=a.angle-u.turnSpeed;}else{a.angle=a.angle+u.turnSpeed;} } else if(right>left){ a.angle=a.angle+u.turnSpeed; } else if(left>right){ a.angle=a.angle-u.turnSpeed; } var np=a.pos+vec2f(cos(a.angle),sin(a.angle))*u.speed; if(np.x<0.0){np.x=np.x+f32(u.w);} if(np.x>=f32(u.w)){np.x=np.x-f32(u.w);} if(np.y<0.0){np.y=np.y+f32(u.h);} if(np.y>=f32(u.h)){np.y=np.y-f32(u.h);} a.pos=np; agents[i]=a; let dx=min(u32(np.x),u.w-1u); let dy=min(u32(np.y),u.h-1u); atomicAdd(&trail[dy*u.w+dx],u32(u.deposit)); }";
+    var diffuseWGSL = U +
+      "@group(0) @binding(0) var<storage, read_write> inT: array<atomic<u32>>;" +
+      "@group(0) @binding(1) var<storage, read_write> outT: array<atomic<u32>>;" +
+      "@group(0) @binding(2) var<storage, read_write> disp: array<u32>;" +
+      "@group(0) @binding(3) var<uniform> u: U;" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) { let i=gid.x; if(i>=u.w*u.h){return;} let w=i32(u.w); let h=i32(u.h); let x=i32(i)%w; let y=i32(i)/w; var sum=0u; for(var dy=-1;dy<=1;dy=dy+1){ for(var dx=-1;dx<=1;dx=dx+1){ let xx=((x+dx)%w+w)%w; let yy=((y+dy)%h+h)%h; sum=sum+atomicLoad(&inT[u32(yy*w+xx)]); } } let v=u32((f32(sum)/9.0)*u.decay); atomicStore(&outT[i],v); disp[i]=v; }";
+    var renderWGSL = U +
+      "@group(0) @binding(0) var<storage, read> disp: array<u32>; @group(0) @binding(1) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f };" +
+      "@vertex fn vs(@builtin(vertex_index) i: u32) -> VO { var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0)); var o: VO; o.pos=vec4f(p[i],0.0,1.0); o.uv=p[i]*0.5+0.5; return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { let xi=min(u32(in.uv.x*f32(u.w)),u.w-1u); let yi=min(u32((1.0-in.uv.y)*f32(u.h)),u.h-1u); let t=clamp(f32(disp[yi*u.w+xi])/110.0,0.0,1.0); var col=mix(vec3f(0.02,0.02,0.05),vec3f(0.486,0.36,1.0),smoothstep(0.0,0.4,t)); col=mix(col,vec3f(0.098,0.89,0.839),smoothstep(0.4,0.8,t)); col=mix(col,vec3f(1.0,1.0,1.0),smoothstep(0.85,1.0,t)); return vec4f(col,1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var adata = new Float32Array(AGENTS * 4);
+      for (var i = 0; i < AGENTS; i++) { var ang = Math.random() * Math.PI * 2; var r = Math.sqrt(Math.random()) * Math.min(W, H) * 0.3; adata[i*4]=W/2+Math.cos(ang)*r; adata[i*4+1]=H/2+Math.sin(ang)*r; adata[i*4+2]=ang+Math.PI; adata[i*4+3]=0; }
+      var agents = device.createBuffer({ size: AGENTS * 16, usage: GPUBufferUsage.STORAGE, mappedAtCreation: true });
+      new Float32Array(agents.getMappedRange()).set(adata); agents.unmap();
+      var trail = [device.createBuffer({ size: CELLS * 4, usage: GPUBufferUsage.STORAGE }), device.createBuffer({ size: CELLS * 4, usage: GPUBufferUsage.STORAGE })];
+      var disp = device.createBuffer({ size: CELLS * 4, usage: GPUBufferUsage.STORAGE });
+      var uni = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      var ub = new ArrayBuffer(48), u32 = new Uint32Array(ub), f32 = new Float32Array(ub);
+      u32[0] = W; u32[1] = H; u32[2] = AGENTS; f32[5] = 9.0; f32[6] = 0.5; f32[7] = 0.4; f32[8] = 1.1; f32[9] = 32.0; f32[10] = 0.9;
+      var aPipe = device.createComputePipeline({ layout: "auto", compute: { module: device.createShaderModule({ code: agentWGSL }), entryPoint: "main" } });
+      var dPipe = device.createComputePipeline({ layout: "auto", compute: { module: device.createShaderModule({ code: diffuseWGSL }), entryPoint: "main" } });
+      var rMod = device.createShaderModule({ code: renderWGSL });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      var aBind = [
+        device.createBindGroup({ layout: aPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: agents } }, { binding: 1, resource: { buffer: trail[0] } }, { binding: 2, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: aPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: agents } }, { binding: 1, resource: { buffer: trail[1] } }, { binding: 2, resource: { buffer: uni } }] })];
+      var dBind = [
+        device.createBindGroup({ layout: dPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: trail[0] } }, { binding: 1, resource: { buffer: trail[1] } }, { binding: 2, resource: { buffer: disp } }, { binding: 3, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: dPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: trail[1] } }, { binding: 1, resource: { buffer: trail[0] } }, { binding: 2, resource: { buffer: disp } }, { binding: 3, resource: { buffer: uni } }] })];
+      var rBind = device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: disp } }, { binding: 1, resource: { buffer: uni } }] });
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var cur = 0, start = performance.now();
+      function frame() {
+        f32[4] = (performance.now() - start) / 1000; device.queue.writeBuffer(uni, 0, ub);
+        var enc = device.createCommandEncoder();
+        var ap = enc.beginComputePass(); ap.setPipeline(aPipe); ap.setBindGroup(0, aBind[cur]); ap.dispatchWorkgroups(Math.ceil(AGENTS / 64)); ap.end();
+        var dp = enc.beginComputePass(); dp.setPipeline(dPipe); dp.setBindGroup(0, dBind[cur]); dp.dispatchWorkgroups(Math.ceil(CELLS / 64)); dp.end();
+        var rp = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.02, g: 0.02, b: 0.05, a: 1 } }] }); rp.setPipeline(rPipe); rp.setBindGroup(0, rBind); rp.draw(3); rp.end();
+        device.queue.submit([enc.finish()]); cur = 1 - cur; requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>

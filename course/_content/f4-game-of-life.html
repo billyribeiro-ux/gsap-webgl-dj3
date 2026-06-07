@@ -1,0 +1,105 @@
+<!--lead: The most famous cellular automaton, on the GPU. One compute thread per cell reads its eight neighbours and applies four rules — and from that, gliders, oscillators and chaos. Drag to draw your own life.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Conway's Game of Life is the canonical example of <strong>emergence from rules</strong>:
+    a grid of cells, each alive or dead, updated in lockstep by four tiny rules about how
+    many neighbours are alive. It maps onto a compute shader perfectly — the grid is a
+    storage buffer, and one thread updates each cell by reading its eight neighbours.
+    Cellular automata like this underpin everything from fluid lattices to procedural
+    texture generation.
+  </p>
+
+  <h2>Drag to paint life</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU compute · drag to draw</span>
+      <canvas id="life-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/GameOfLife.svelte" name="src/lib/GameOfLife.svelte"-->
+  </div>
+
+  <h2>The CA pattern on the GPU</h2>
+  <ul>
+    <li><strong>The grid is a buffer.</strong> One <code>u32</code> per cell (0 or 1). The
+      compute shader reads the input buffer and writes the next generation to an output
+      buffer — never the same buffer, so every cell sees a consistent snapshot. Ping-pong,
+      again.</li>
+    <li><strong>Neighbours with wrap.</strong> Each thread counts the eight surrounding
+      cells, wrapping at the edges with modulo so the world is a torus. Then the B3/S23 rule:
+      a dead cell with exactly 3 neighbours is born; a live cell with 2 or 3 survives;
+      everything else dies.</li>
+    <li><strong>Render reads the buffer directly.</strong> A fragment shader maps each pixel
+      to a cell and colours it — no CPU readback. We also <em>throttle</em> the simulation
+      (stepping every third frame) so the patterns are watchable instead of a blur.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Writing into a live GPU buffer.</strong> Your cursor paints by writing
+      <code>1</code>s straight into the grid buffer with <code>queue.writeBuffer</code> — no
+      shader needed for a few cells. That's the everyday bridge between CPU interaction and
+      GPU state. Swap the four rules for different "lifelike" automata (try B36/S23, "HighLife",
+      which has self-replicating patterns) and the same engine produces an entirely different
+      universe.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("life-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var W = 260, H = 180, CELLS = W * H;
+    var computeWGSL =
+      "struct U { w: u32, h: u32 };" +
+      "@group(0) @binding(0) var<storage, read> inG: array<u32>;" +
+      "@group(0) @binding(1) var<storage, read_write> outG: array<u32>;" +
+      "@group(0) @binding(2) var<uniform> u: U;" +
+      "fn at(x: i32, y: i32, w: i32, h: i32) -> u32 { let xx=(x+w)%w; let yy=(y+h)%h; return inG[u32(yy*w+xx)]; }" +
+      "@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) { let i=gid.x; if(i>=u.w*u.h){return;} let w=i32(u.w); let h=i32(u.h); let x=i32(i)%w; let y=i32(i)/w; var n=0u; for(var dy=-1;dy<=1;dy=dy+1){ for(var dx=-1;dx<=1;dx=dx+1){ if(dx==0&&dy==0){continue;} n=n+at(x+dx,y+dy,w,h); } } let a=inG[i]; var nx=0u; if(a==1u){ if(n==2u||n==3u){nx=1u;} } else { if(n==3u){nx=1u;} } outG[i]=nx; }";
+    var renderWGSL =
+      "struct U { w: u32, h: u32 };" +
+      "@group(0) @binding(0) var<storage, read> g: array<u32>; @group(0) @binding(1) var<uniform> u: U;" +
+      "struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f };" +
+      "@vertex fn vs(@builtin(vertex_index) i: u32) -> VO { var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0)); var o: VO; o.pos=vec4f(p[i],0.0,1.0); o.uv=p[i]*0.5+0.5; return o; }" +
+      "@fragment fn fs(in: VO) -> @location(0) vec4f { let xi=min(u32(in.uv.x*f32(u.w)),u.w-1u); let yi=min(u32((1.0-in.uv.y)*f32(u.h)),u.h-1u); if(g[yi*u.w+xi]==0u){ return vec4f(0.02,0.025,0.04,1.0); } return vec4f(mix(vec3f(0.486,0.36,1.0),vec3f(0.098,0.89,0.839),in.uv.y),1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var seed = new Uint32Array(CELLS); for (var i = 0; i < CELLS; i++) seed[i] = Math.random() < 0.22 ? 1 : 0;
+      function mk(init) { var b = device.createBuffer({ size: CELLS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST, mappedAtCreation: !!init }); if (init) { new Uint32Array(b.getMappedRange()).set(init); b.unmap(); } return b; }
+      var buf = [mk(seed), mk(null)];
+      var uni = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      device.queue.writeBuffer(uni, 0, new Uint32Array([W, H, 0, 0]));
+      var cMod = device.createShaderModule({ code: computeWGSL }), rMod = device.createShaderModule({ code: renderWGSL });
+      var cPipe = device.createComputePipeline({ layout: "auto", compute: { module: cMod, entryPoint: "main" } });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      var cBind = [
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: buf[1] } }, { binding: 2, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: cPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: buf[0] } }, { binding: 2, resource: { buffer: uni } }] })];
+      var rBind = [
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[0] } }, { binding: 1, resource: { buffer: uni } }] }),
+        device.createBindGroup({ layout: rPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: buf[1] } }, { binding: 1, resource: { buffer: uni } }] })];
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var latest = 0, drawing = false;
+      function paint(e) { if (!drawing) return; var r = canvas.getBoundingClientRect(); var cx = Math.floor((e.clientX - r.left) / r.width * W), cy = Math.floor((e.clientY - r.top) / r.height * H); var one = new Uint32Array([1]); for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var x = cx + dx, y = cy + dy; if (x < 0 || x >= W || y < 0 || y >= H) continue; device.queue.writeBuffer(buf[latest], (y * W + x) * 4, one); } }
+      canvas.addEventListener("pointerdown", function (e) { drawing = true; paint(e); });
+      window.addEventListener("pointerup", function () { drawing = false; });
+      canvas.addEventListener("pointermove", paint);
+      var tick = 0;
+      function frame() {
+        if (tick % 3 === 0) { var e1 = device.createCommandEncoder(); var cp = e1.beginComputePass(); cp.setPipeline(cPipe); cp.setBindGroup(0, cBind[latest]); cp.dispatchWorkgroups(Math.ceil(CELLS / 64)); cp.end(); device.queue.submit([e1.finish()]); latest = 1 - latest; }
+        var e2 = device.createCommandEncoder(); var rp = e2.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.02, g: 0.025, b: 0.04, a: 1 } }] }); rp.setPipeline(rPipe); rp.setBindGroup(0, rBind[latest]); rp.draw(3); rp.end(); device.queue.submit([e2.finish()]);
+        tick++; requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>

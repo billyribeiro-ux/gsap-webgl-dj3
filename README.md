@@ -86,10 +86,11 @@ M8 D3 Motion · M9 Three.js · M10 Threlte · M11 Cinematic Capstones ·
 M12 Advanced Cinematic FX (glitch, distortion, GPU particles, postprocessing) ·
 M13 The Frontier (image transitions, metaballs, magnetic cursor, audio‑reactive) ·
 M14 The Bleeding Edge (raymarched SDFs, GPU reaction‑diffusion, GPGPU particles, rigid‑body physics) ·
-M15 WebGPU (WGSL render pipelines, a million‑particle compute shader, boids flocking, N‑body gravity).
+M15 WebGPU (WGSL pipelines, a million‑particle compute shader, boids, N‑body gravity,
+Conway's Life, and a 200k‑agent slime‑mould simulation).
 
-**51 lessons across 15 modules**, every one fully authored with a live demo and
-copy‑paste TypeScript code — and **49 runnable routes** in the reference app.
+**53 lessons across 15 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **51 runnable routes** in the reference app.
 
 ---
 
