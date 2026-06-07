@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your First Tween — to, from, fromTo — MOTION</title>
+  <meta name="description" content="GSAP is the animation engine behind a huge share of award-winning sites — and as of 2025 it's 100% free, every plugin included. Let's write your first tween and learn the one pattern that makes GSAP feel native in Svelte." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+</head>
+<body data-slug="40-gsap-first-tween">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M4 · GSAP Core</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Your First Tween — to, from, fromTo</h1>
+        <p class="hero__lead" data-reveal="120">GSAP is the animation engine behind a huge share of award-winning sites — and as of 2025 it's 100% free, every plugin included. Let's write your first tween and learn the one pattern that makes GSAP feel native in Svelte.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    A <strong>tween</strong> is GSAP's atom: "take these properties, on these
+    targets, and interpolate them over this time with this ease." If CSS transitions
+    are <em>declarative</em> ("ease changes to this property"), GSAP is
+    <em>imperative</em> and far more powerful: it can animate <strong>any</strong>
+    numeric property of <strong>anything</strong> — DOM, SVG, canvas, even plain
+    JavaScript objects — and orchestrate hundreds of them in perfect sync.
+  </p>
+
+  <h2>Your first reveal</h2>
+  <p>
+    Below, three cards rise and fade into place, each staggered behind the last. The
+    whole effect is a single <code>gsap.from(...)</code> call. Hit replay and watch
+    the stagger ripple.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · GSAP</span>
+      <div id="gsap-demo" class="center" style="width:100%;height:100%"></div>
+      <button class="stage__replay" type="button" data-replay="gsap" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <div class="codepanel" data-file="src/lib/GsapReveal.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/GsapReveal.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import type { Attachment } from 'svelte/attachments';
+
+  type Feature = { title: string; body: string };
+
+  let { features }: { features: Feature[] } = $props();
+
+  // An attachment that animates the element's children in on mount. We wrap the
+  // tween in a gsap.context() scoped to `node`; calling ctx.revert() in cleanup
+  // kills every animation it created and restores the original styles. This is
+  // THE pattern for using GSAP inside a component without leaks.
+  const revealOnMount: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const ctx = gsap.context(() =&gt; {
+      gsap.from(node.children, {
+        y: 48,
+        opacity: 0,
+        duration: 0.9,
+        ease: 'expo.out',
+        stagger: 0.12 // each child starts 120ms after the previous one
+      });
+    }, node);
+
+    return () =&gt; ctx.revert();
+  };
+&lt;/script&gt;
+
+&lt;div class="row" {@attach revealOnMount}&gt;
+  {#each features as feature (feature.title)}
+    &lt;article class="card"&gt;
+      &lt;h3&gt;{feature.title}&lt;/h3&gt;
+      &lt;p&gt;{feature.body}&lt;/p&gt;
+    &lt;/article&gt;
+  {/each}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .row { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); width: min(520px, 92%); }
+  .card { padding: 1.2rem; border-radius: 14px; background: #11141f; border: 1px solid #1b2030; }
+  .card h3 { margin: 0 0 0.35rem; color: #f4f6fb; font-size: 1rem; }
+  .card p { margin: 0; color: #8b93a7; font-size: 0.85rem; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>to, from, fromTo — the three you'll reach for daily</h2>
+  <ul>
+    <li><strong><code>gsap.to(target, {...})</code></strong> — animate <em>to</em>
+      these values from wherever the element currently is. The everyday workhorse.</li>
+    <li><strong><code>gsap.from(target, {...})</code></strong> — animate <em>from</em>
+      these values to the element's natural state. Perfect for reveals: set the
+      "before" and GSAP figures out the "after". That's what the demo uses.</li>
+    <li><strong><code>gsap.fromTo(target, {from}, {to})</code></strong> — you control
+      both ends explicitly. Reach for it when the start state matters and you can't
+      rely on the current styles.</li>
+  </ul>
+
+  <h2>Stagger: the cinematic multiplier</h2>
+  <p>
+    <code>stagger: 0.12</code> tells GSAP to start each target 120ms after the
+    previous one. That one property turns a flat group reveal into a wave. You can go
+    further — <code>stagger: { each: 0.1, from: 'center' }</code> ripples outward
+    from the middle; <code>{ grid: 'auto', from: 'edges' }</code> animates a grid
+    from its corners inward. This is how those "impossible" coordinated reveals are
+    actually done.
+  </p>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The Svelte integration pattern — memorize this.</strong> Wrap GSAP work
+      in <code>gsap.context(() =&gt; {...}, node)</code> inside an
+      <code>{@attach}</code>, and return <code>() =&gt; ctx.revert()</code> as cleanup.
+      <code>context</code> scopes selectors to your element and records every
+      animation it makes; <code>revert()</code> undoes all of it when the component
+      unmounts. No dangling tweens, no memory leaks, no manual bookkeeping. Every
+      GSAP-in-Svelte example in this course uses exactly this shape.
+    </div>
+  </div>
+
+  <h2>Getting GSAP into your project</h2>
+  <p>
+    <code>pnpm add gsap</code>, then <code>import { gsap } from 'gsap';</code>. Plugins
+    like ScrollTrigger and SplitText live in the same package now — you'll just
+    register them once, which we do in the very next lessons.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("gsap-demo");
+    if (!mount || typeof window.gsap === "undefined") {
+      if (mount) mount.innerHTML = '<p class="muted">Loading GSAP…</p>';
+    }
+    function build() {
+      if (typeof window.gsap === "undefined") { setTimeout(build, 120); return; }
+      const gsap = window.gsap;
+      const data = [
+        { t: "Fast", b: "60fps, GPU-aware tweens." },
+        { t: "Precise", b: "Frame-perfect sequencing." },
+        { t: "Free", b: "Every plugin, zero cost." }
+      ];
+      const row = document.createElement("div");
+      row.style.cssText = "display:grid;gap:1rem;grid-template-columns:repeat(3,1fr);width:min(520px,92%)";
+      row.innerHTML = data
+        .map(
+          (d) =>
+            '<article class="g-card" style="padding:1.2rem;border-radius:14px;background:#11141f;border:1px solid #1b2030">' +
+            '<h3 style="margin:0 0 .35rem;color:#f4f6fb;font-size:1rem">' + d.t + "</h3>" +
+            '<p style="margin:0;color:#8b93a7;font-size:.85rem">' + d.b + "</p></article>"
+        )
+        .join("");
+      mount.innerHTML = "";
+      mount.appendChild(row);
+
+      function play() {
+        if (window.MOTION_REDUCED) return;
+        gsap.from(row.children, { y: 48, opacity: 0, duration: 0.9, ease: "expo.out", stagger: 0.12 });
+      }
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.gsap = play;
+      play();
+    }
+    build();
+  })();
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M4 GSAP Core</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

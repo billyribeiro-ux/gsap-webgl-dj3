@@ -1,0 +1,132 @@
+<!--lead: Disney's animators wrote the rulebook in the 1930s. Those same twelve principles power every great interface animation today — let's translate them for the web.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    In 1981, two Disney veterans published <em>The Illusion of Life</em> and named
+    the twelve principles behind every believable animation. Nearly a century later
+    they still decide whether your UI feels premium or amateur. We won't cover all
+    twelve in equal depth, but four of them do <strong>90% of the work</strong> on
+    the web. Master these and everything else in this course clicks into place.
+  </p>
+
+  <h2>1 · Easing (slow in, slow out)</h2>
+  <p>
+    The single highest-leverage idea in motion design. Real objects have mass; they
+    accelerate and decelerate. Linear motion — constant speed — is the dead giveaway
+    of a lazy animation. Press <strong>Race</strong> below and watch the same
+    distance travelled over the same duration. Your eye instantly trusts the eased
+    pucks and distrusts the linear one.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo</span>
+      <div id="ease-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <!--code file="principles/EasingLab.svelte" name="src/lib/EasingLab.svelte"-->
+  </div>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Rule of thumb.</strong> For things <em>entering</em> the screen, use an
+      "out" ease (fast start, gentle settle) like <code>cubic-bezier(0.16, 1, 0.3, 1)</code>.
+      For things <em>leaving</em>, use an "in" ease. For playful, physical UI, a slight
+      overshoot (a spring) adds life — but use it sparingly.
+    </div>
+  </div>
+
+  <h2>2 · Anticipation &amp; Follow-through</h2>
+  <p>
+    Before a character jumps, it crouches. That little wind-up — <strong>anticipation</strong>
+    — tells your brain something is about to happen. Its sibling,
+    <strong>follow-through</strong>, is the settle after arrival: a button that
+    nudges 2&nbsp;pixels past its target and eases back feels tactile and real. The
+    spring easing in the demo above <em>is</em> follow-through, encoded as a curve.
+  </p>
+
+  <h2>3 · Staging (guide the eye)</h2>
+  <p>
+    Every shot in a film directs your attention to one thing. Interfaces are no
+    different. <strong>Stagger</strong> — offsetting the start of many animations —
+    is how we stage motion: instead of ten cards appearing at once, they cascade,
+    and your eye follows the wave. You saw this on the welcome page; we'll automate
+    it with GSAP later.
+  </p>
+
+  <h2>4 · Timing (the feel of weight)</h2>
+  <p>
+    Duration communicates mass. Heavy things move slowly; light things snap. Most UI
+    motion lives between <strong>150ms and 600ms</strong>. Under 100ms feels instant
+    (good for hovers); over 800ms feels sluggish (reserve it for grand, hero-scale
+    reveals). When in doubt, <strong>make it faster</strong> — users feel speed as
+    quality.
+  </p>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The cardinal sin: animating the wrong properties.</strong> Animate
+      <code>transform</code> and <code>opacity</code> — the browser hands those to
+      the GPU and they cost almost nothing. Animating <code>width</code>,
+      <code>top</code>, or <code>box-shadow</code> forces expensive layout/paint on
+      every frame and tanks your framerate. We'll prove this in the performance lesson.
+    </div>
+  </div>
+
+  <p style="margin-top: var(--space-lg)">
+    That's the theory. From here on, everything is hands-on. Next up: making these
+    principles real with nothing but CSS.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("ease-demo");
+    if (!mount) return;
+    const eases = [
+      { name: "linear", css: "linear" },
+      { name: "ease-out-expo", css: "cubic-bezier(0.16,1,0.3,1)" },
+      { name: "ease-spring", css: "cubic-bezier(0.34,1.56,0.64,1)" }
+    ];
+    const pucks = [];
+    const lab = document.createElement("div");
+    lab.style.cssText = "display:flex;flex-direction:column;gap:1rem;width:min(420px,90%)";
+    eases.forEach((e) => {
+      const track = document.createElement("div");
+      track.style.cssText =
+        "position:relative;height:2.4rem;border-radius:999px;background:#11141f;border:1px solid #1b2030;display:flex;align-items:center";
+      const label = document.createElement("span");
+      label.textContent = e.name;
+      label.style.cssText =
+        "position:absolute;left:.9rem;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.08em;color:#8b93a7;pointer-events:none";
+      const puck = document.createElement("span");
+      puck.style.cssText =
+        "width:2rem;height:2rem;margin:0 .2rem;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#19e3d6);box-shadow:0 0 16px #7c5cff88;transition:transform 1.4s " +
+        e.css;
+      pucks.push(puck);
+      track.append(label, puck);
+      lab.appendChild(track);
+    });
+    const btn = document.createElement("button");
+    btn.textContent = "Race";
+    btn.style.cssText =
+      "margin-top:1.2rem;padding:.6rem 1.4rem;border-radius:999px;border:none;font-weight:700;color:#0a0414;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer";
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex;flex-direction:column;align-items:center";
+    wrap.append(lab, btn);
+    mount.appendChild(wrap);
+
+    function race() {
+      if (window.MOTION_REDUCED) return;
+      pucks.forEach((p) => (p.style.transform = "translateX(0)"));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => pucks.forEach((p) => (p.style.transform = "translateX(calc(100% - 2.4rem))")))
+      );
+    }
+    btn.addEventListener("click", race);
+    window.MotionDemos = window.MotionDemos || {};
+    window.MotionDemos.principles = race;
+    setTimeout(race, 400);
+  })();
+</script>

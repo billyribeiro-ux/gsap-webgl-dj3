@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your First 3D Scene + Render Loop — MOTION</title>
+  <meta name="description" content="Two dimensions aren't always enough. Three.js gives you a real-time 3D engine in the browser — scene, camera, lights, materials and a render loop running on the GPU. Let's light up your first object." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-slug="90-threejs-first-scene">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M9 · WebGL / Three.js</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Your First 3D Scene + Render Loop</h1>
+        <p class="hero__lead" data-reveal="120">Two dimensions aren't always enough. Three.js gives you a real-time 3D engine in the browser — scene, camera, lights, materials and a render loop running on the GPU. Let's light up your first object.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    WebGL lets the browser talk directly to the GPU, but its raw API is brutally
+    low-level. <strong>Three.js</strong> is the layer almost everyone uses on top —
+    it gives you intuitive objects (meshes, cameras, lights) and handles the math.
+    Every 3D product viewer, every immersive scrollytelling site, every
+    "how is this in a browser?!" moment is almost certainly Three.js.
+  </p>
+
+  <h2>Your first lit, spinning object</h2>
+  <p>
+    Below is a faceted icosahedron, lit by a violet key light and a cyan rim light,
+    rotating in a render loop. That's the entire skeleton of 3D on the web — and the
+    code beside it is exactly what you'd drop into a SvelteKit component.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · Three.js (WebGL)</span>
+      <canvas id="three-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <div class="codepanel" data-file="src/lib/ThreeScene.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/ThreeScene.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as THREE from 'three';
+  import type { Attachment } from 'svelte/attachments';
+
+  // Every Three.js scene needs the same three things: a SCENE (the world), a
+  // CAMERA (your eye), and a RENDERER (which paints the scene onto a &lt;canvas&gt;
+  // each frame). Add a mesh + lights, spin it in a render loop, and you have 3D.
+  const scene: Attachment&lt;HTMLCanvasElement&gt; = (canvas) =&gt; {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const world = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 4;
+
+    // A mesh = geometry (shape) + material (surface). MeshStandardMaterial reacts
+    // to light, which is what gives it that premium, physically-lit look.
+    const geometry = new THREE.IcosahedronGeometry(1.2, 0);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x11141f,
+      metalness: 0.6,
+      roughness: 0.25,
+      flatShading: true
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    world.add(mesh);
+
+    // Two coloured point lights are the whole "cinematic" trick — one warm-violet
+    // key light, one cyan rim light, raking across the facets.
+    const key = new THREE.PointLight(0x7c5cff, 80);
+    key.position.set(3, 3, 4);
+    const rim = new THREE.PointLight(0x19e3d6, 60);
+    rim.position.set(-4, -2, 2);
+    world.add(key, rim, new THREE.AmbientLight(0xffffff, 0.15));
+
+    function resize(): void {
+      const { clientWidth: w, clientHeight: h } = canvas;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+
+    // The render loop: rotate a touch, then draw. ~60 times a second.
+    let raf = 0;
+    const tick = (): void =&gt; {
+      mesh.rotation.x += 0.004;
+      mesh.rotation.y += 0.006;
+      renderer.render(world, camera);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    // Cleanup: stop the loop and free every GPU resource. Skipping this leaks
+    // memory across SvelteKit navigations.
+    return () =&gt; {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      geometry.dispose();
+      material.dispose();
+      renderer.dispose();
+    };
+  };
+&lt;/script&gt;
+
+&lt;canvas class="viewport" {@attach scene}&gt;&lt;/canvas&gt;
+
+&lt;style&gt;
+  .viewport { width: 100%; height: 100%; min-height: 320px; display: block; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>The three pillars of every scene</h2>
+  <ul>
+    <li><strong>Scene</strong> — the 3D world. You add everything (meshes, lights,
+      cameras, groups) to it. Think of it as the film set.</li>
+    <li><strong>Camera</strong> — your viewpoint. A <code>PerspectiveCamera</code>
+      mimics a real lens: things farther away look smaller. Its
+      <code>aspect</code> must match your canvas, or everything stretches.</li>
+    <li><strong>Renderer</strong> — the <code>WebGLRenderer</code> takes the scene
+      and camera and paints one frame onto the canvas. Call
+      <code>renderer.render(scene, camera)</code> every frame and you have animation.</li>
+  </ul>
+
+  <h2>Mesh = geometry + material, lit by lights</h2>
+  <p>
+    A <strong>mesh</strong> is a shape (<em>geometry</em>) wearing a surface
+    (<em>material</em>). We used <code>MeshStandardMaterial</code>, which is
+    physically based — it actually responds to light, which is why two coloured
+    point lights raking across the facets look so rich. Swap to
+    <code>MeshBasicMaterial</code> and it ignores lights entirely (flat, but cheap).
+    Lighting is 80% of what makes 3D look expensive; spend your time there.
+  </p>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Dispose everything, every time.</strong> Geometries, materials and the
+      renderer hold GPU memory that JavaScript's garbage collector can't reclaim. In
+      a SvelteKit app, navigating away from a 3D page without calling
+      <code>geometry.dispose()</code>, <code>material.dispose()</code> and
+      <code>renderer.dispose()</code> leaks memory until the tab crashes. Our
+      attachment's cleanup function does exactly this — which is why attachments are
+      perfect for wrapping Three.js.
+    </div>
+  </div>
+
+  <p>
+    Writing scene graphs by hand gets verbose fast. In the next lesson we meet
+    <strong>Threlte</strong>, which lets you <em>declare</em> 3D scenes as Svelte
+    components — the same Three.js power, a fraction of the code.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("three-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const world = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 4;
+    const geometry = new THREE.IcosahedronGeometry(1.2, 0);
+    const material = new THREE.MeshStandardMaterial({ color: 0x11141f, metalness: 0.6, roughness: 0.25, flatShading: true });
+    const mesh = new THREE.Mesh(geometry, material);
+    world.add(mesh);
+    const key = new THREE.PointLight(0x7c5cff, 80); key.position.set(3, 3, 4);
+    const rim = new THREE.PointLight(0x19e3d6, 60); rim.position.set(-4, -2, 2);
+    world.add(key, rim, new THREE.AmbientLight(0xffffff, 0.15));
+    function resize() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const reduce = window.MOTION_REDUCED;
+    function tick() {
+      if (!reduce) { mesh.rotation.x += 0.004; mesh.rotation.y += 0.006; }
+      renderer.render(world, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M9 WebGL / Three.js</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

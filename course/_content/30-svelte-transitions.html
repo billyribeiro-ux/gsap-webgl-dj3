@@ -1,0 +1,105 @@
+<!--lead: Svelte ships an entire motion system in the box — transitions that play on mount and unmount, and FLIP animations that make lists reflow like liquid. No library, no boilerplate.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Here's Svelte's superpower for motion: it <em>knows</em> when an element enters
+    and leaves the DOM, so it can animate those moments for you. Add
+    <code>transition:fly</code> to an element and Svelte plays it in on mount and
+    reverses it on unmount — automatically, with cleanup handled. This is the thing
+    that's genuinely painful in React and trivial here.
+  </p>
+
+  <h2>Transitions + FLIP, together</h2>
+  <p>
+    Click <strong>Add notification</strong>. New toasts fly up and fade in; after a
+    moment they fade out; and crucially, the survivors <em>glide</em> into their new
+    positions instead of jumping. That gliding is FLIP, and Svelte gives it to you
+    with a single directive: <code>animate:flip</code>.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · click add</span>
+      <div id="toast-demo" class="center stack" style="width:100%;height:100%;padding:1.5rem"></div>
+    </div>
+    <!--code file="svelte/Notifications.svelte" name="src/lib/Notifications.svelte"-->
+  </div>
+
+  <h2>The four directives you'll use forever</h2>
+  <ul>
+    <li><strong><code>transition:</code></strong> — one effect used for both enter
+      and leave (it simply reverses on the way out). Great for symmetric motion.</li>
+    <li><strong><code>in:</code> and <code>out:</code></strong> — separate enter and
+      leave effects. In the demo, toasts <em>fly</em> in but only <em>fade</em> out —
+      that asymmetry feels natural because arrivals deserve more fanfare than exits.</li>
+    <li><strong><code>animate:</code></strong> — plays when an element's
+      <em>position</em> in a keyed <code>{#each}</code> changes. This is FLIP, and
+      it's how you animate reordering, sorting and removal in lists.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>FLIP needs a key.</strong> <code>animate:flip</code> only works inside a
+      keyed each block — <code>{#each toasts as t (t.id)}</code>. The key is how
+      Svelte tracks which DOM node is which across updates, so it can measure where
+      each item <em>was</em> (First), where it's going (Last), Invert the difference,
+      and Play it back. That's literally what FLIP stands for.
+    </div>
+  </div>
+
+  <h2>When built-ins, when GSAP?</h2>
+  <p>
+    Reach for Svelte's transitions first — they're free, accessible and require zero
+    setup for the 90% case: modals, toasts, dropdowns, list changes, page sections.
+    Step up to GSAP (next module) when you need to <em>sequence</em> many things on a
+    shared timeline, scrub animation to scroll, or split and animate text. The two
+    coexist beautifully: Svelte for state-driven enter/leave, GSAP for choreography.
+  </p>
+  <p>
+    There's also <code>svelte/motion</code> — <code>Tween</code> and
+    <code>Spring</code> — for smoothly animating <em>numbers</em> (a counter, a
+    progress bar, a dragged value). We cover those in the next lesson.
+  </p>
+</div>
+
+<script>
+  /* Vanilla approximation of the Svelte version, using the Web Animations API. */
+  (function () {
+    const mount = document.getElementById("toast-demo");
+    if (!mount) return;
+    mount.style.flexDirection = "column";
+    mount.style.justifyContent = "flex-start";
+    mount.style.gap = "0.6rem";
+
+    const btn = document.createElement("button");
+    btn.textContent = "Add notification";
+    btn.style.cssText =
+      "padding:.6rem 1.3rem;border-radius:999px;border:none;font-weight:700;color:#0a0414;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer;flex:0 0 auto";
+    const list = document.createElement("ul");
+    list.style.cssText = "list-style:none;padding:0;margin:.4rem 0 0;display:flex;flex-direction:column;gap:.6rem;width:min(320px,90%)";
+    mount.append(btn, list);
+
+    const msgs = ["Render complete", "Deploy succeeded", "New comment", "Build passed", "3 files synced"];
+    const reduce = window.MOTION_REDUCED;
+
+    function add() {
+      const li = document.createElement("li");
+      li.style.cssText =
+        "display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.85rem 1rem;border-radius:12px;background:#11141f;border:1px solid #1b2030;color:#d6dbe6;box-shadow:0 10px 30px -14px #000";
+      li.innerHTML =
+        "<span>" + msgs[Math.floor(Math.random() * msgs.length)] + "</span>";
+      list.prepend(li);
+      if (!reduce) li.animate([{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "none" }], { duration: 450, easing: "cubic-bezier(.23,1,.32,1)" });
+      setTimeout(() => {
+        if (!li.isConnected) return;
+        if (reduce) { li.remove(); return; }
+        li.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250 }).onfinish = () => li.remove();
+      }, 2600);
+    }
+    btn.addEventListener("click", add);
+    window.MotionDemos = window.MotionDemos || {};
+    window.MotionDemos.toasts = add;
+    add();
+  })();
+</script>

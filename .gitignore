@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# SvelteKit / Vite build output
+app/.svelte-kit/
+app/build/
+app/.vite/
+.vite-temp/
+
+# Logs & env
+*.log
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

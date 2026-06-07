@@ -1,0 +1,135 @@
+<!--lead: I've shipped motion systems used by millions. Here's everything I know, distilled into a path you can actually follow — from your first transition to title sequences that rival the studios.-->
+
+<div class="lesson__body prose">
+
+  <p data-reveal>
+    Welcome. For the next twelve modules I'm going to teach you motion the way I
+    wish someone had taught me — not as a pile of API calls, but as a
+    <strong>craft</strong>. By the end, you won't just know how to make things
+    move. You'll know <em>when</em>, <em>how much</em>, and most importantly
+    <em>why</em> — the difference between an animation that feels cheap and one
+    that makes people lean toward the screen.
+  </p>
+
+  <p data-reveal>
+    Here's the promise: every concept ships with a <strong>real, running demo</strong>
+    right on the page, and the exact <strong>Svelte&nbsp;5 code</strong> to rebuild
+    it sits next to it, one click from your clipboard. Read here, build in your own
+    SvelteKit project. That's the whole loop.
+  </p>
+
+  <h2>Watch this run, then steal it</h2>
+  <p>
+    Below is the kind of headline reveal you've seen on a hundred premium sites.
+    It's pure CSS — no libraries — and it's the perfect first lesson in
+    <em>stagger</em>: animating many elements with a tiny offset so motion ripples
+    across them instead of snapping all at once.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo</span>
+      <div id="welcome-demo" class="center" style="width:100%;height:100%"></div>
+      <button class="stage__replay" type="button" data-replay="welcome" aria-label="Replay animation" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/><path d="M184,64a8,8,0,0,1-8,8H152a8,8,0,0,1,0-16h16V40a8,8,0,0,1,16,0Z" transform="translate(8 0)"/></svg>
+      </button>
+    </div>
+    <!--code file="welcome/CinematicTitle.svelte" name="src/lib/CinematicTitle.svelte"-->
+  </div>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,144a15.78,15.78,0,0,0-10.42,3.93l-.15.13L168,176H136a8,8,0,0,1,0-16h22a14,14,0,0,0,0-28H93.94a32.06,32.06,0,0,0-22.63,9.37L46.69,176H16a16,16,0,0,0-16,16v32a16,16,0,0,0,16,16H160a8,8,0,0,0,5.66-2.34l60-60A16,16,0,0,0,208,144Z"/><path d="M239.9,89.17a8,8,0,0,0-9.07-6.81L208,85.78V40a16,16,0,0,0-16-16H80a16,16,0,0,0-16,16v53.2a40.43,40.43,0,0,1,16-4.91V40H192V88.21l-22.83,3.43a8,8,0,0,0,1.18,15.92,8.4,8.4,0,0,0,1.2-.09l60-9A8,8,0,0,0,239.9,89.17Z"/></svg></span>
+    <div class="callout__body">
+      <strong>How to read every lesson.</strong> The left pane is the result.
+      The right pane is the code — it's a real Monaco editor, so it highlights
+      and scrolls just like VS&nbsp;Code. Hit <strong>Copy</strong>, paste it into
+      <code>src/lib/</code> of a fresh SvelteKit app, and it runs. We'll scaffold
+      that app together in the first GSAP module.
+    </div>
+  </div>
+
+  <h2>What "cinematic" actually means</h2>
+  <p>
+    Hollywood, Apple and Netflix don't move things <em>more</em> — they move them
+    with <strong>intention</strong>. Three ideas separate their work from the rest,
+    and we'll return to them in every single module:
+  </p>
+  <ul>
+    <li><strong>Easing over linear.</strong> Nothing in the physical world starts
+      or stops instantly. Cinematic motion accelerates and settles. You already
+      saw it above — that <code>cubic-bezier(0.16, 1, 0.3, 1)</code> is the
+      "expo-out" curve, the workhorse of premium UI.</li>
+    <li><strong>Hierarchy &amp; stagger.</strong> Things don't arrive together;
+      they arrive in an order that guides your eye. A 60-millisecond offset is
+      often the entire difference.</li>
+    <li><strong>Restraint.</strong> The best motion is felt, not noticed. If the
+      audience is admiring your animation instead of your product, you overdid it.</li>
+  </ul>
+
+  <h2>Your toolkit, and when to reach for each</h2>
+  <div class="grid grid--2" data-reveal>
+    <article class="card">
+      <h3>CSS &amp; Svelte transitions</h3>
+      <p>Your default. Free, GPU-accelerated, accessible. Reach for these first for hovers, reveals and state changes.</p>
+    </article>
+    <article class="card">
+      <h3>GSAP</h3>
+      <p>When you need precise sequencing, scroll-driven storytelling, or text and SVG effects. The industry standard — now 100% free, every plugin included.</p>
+    </article>
+    <article class="card">
+      <h3>D3</h3>
+      <p>When the motion <em>is the data</em> — charts that animate as numbers change, with enter/update/exit choreography.</p>
+    </article>
+    <article class="card">
+      <h3>Three.js &amp; Threlte</h3>
+      <p>When two dimensions aren't enough. Real-time 3D, lighting and shaders — declared the Svelte way with Threlte.</p>
+    </article>
+  </div>
+
+  <p style="margin-top: var(--space-lg)">
+    That's the map. Turn the page and we'll start where every great motion designer
+    starts: the principles. Then we build, and we don't stop until you've made
+    something the studios would be proud of.
+  </p>
+</div>
+
+<script>
+  /* Live demo: mount the same idea the snippet describes, in vanilla DOM so it
+     runs with zero build step. The Svelte version (right) is what you'd ship. */
+  (function () {
+    const mount = document.getElementById("welcome-demo");
+    if (!mount) return;
+    const text = "MOTION";
+
+    function render() {
+      mount.innerHTML = "";
+      const h = document.createElement("div");
+      h.setAttribute("role", "img");
+      h.setAttribute("aria-label", text);
+      h.style.cssText = "display:flex;gap:0.02em;font-size:clamp(2.5rem,11vw,6rem);font-weight:800;letter-spacing:-0.04em";
+      [...text].forEach((ch, i) => {
+        const s = document.createElement("span");
+        s.textContent = ch;
+        s.style.cssText =
+          "display:inline-block;background:linear-gradient(135deg,#7c5cff,#ff5f9e 45%,#19e3d6);" +
+          "-webkit-background-clip:text;background-clip:text;color:transparent;" +
+          (window.MOTION_REDUCED ? "" : "animation:rise .9s cubic-bezier(.16,1,.3,1) backwards;animation-delay:" + i * 60 + "ms");
+        h.appendChild(s);
+      });
+      mount.appendChild(h);
+    }
+
+    // Inject the keyframes once (scoped names won't collide).
+    if (!document.getElementById("welcome-kf")) {
+      const st = document.createElement("style");
+      st.id = "welcome-kf";
+      st.textContent =
+        "@keyframes rise{from{opacity:0;transform:translateY(.6em) rotateX(-40deg);filter:blur(8px)}to{opacity:1;transform:none;filter:blur(0)}}";
+      document.head.appendChild(st);
+    }
+
+    window.MotionDemos = window.MotionDemos || {};
+    window.MotionDemos.welcome = render;
+    render();
+  })();
+</script>

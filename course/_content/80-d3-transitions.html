@@ -1,0 +1,117 @@
+<!--lead: When the motion IS the data — bars that grow, lines that redraw, points that fly to new positions as numbers change — you want D3. Its enter/update/exit model is the most elegant idea in data visualization.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    GSAP animates elements. D3 animates <strong>data</strong>. The distinction
+    matters: with D3 you don't say "move this bar to 140px tall," you say "this bar
+    represents the number 73," and when 73 becomes 20, D3 transitions the bar to its
+    new height for you. Bind data to shapes, describe the transitions once, and the
+    chart stays in sync with reality — animating every change automatically.
+  </p>
+
+  <h2>A self-animating bar chart</h2>
+  <p>
+    Press <strong>Shuffle</strong>. Bars smoothly grow and shrink to new values and
+    recolor along a scale. Press <strong>Add / Remove</strong> and watch brand-new
+    bars rise from the baseline (<em>enter</em>) while departing ones sink and fade
+    (<em>exit</em>) — all choreographed by D3's data join.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · D3</span>
+      <div id="d3-demo" class="center stack" style="width:100%;height:100%;gap:1rem;padding:1.25rem"></div>
+    </div>
+    <!--code file="d3/D3Bars.svelte" name="src/lib/D3Bars.svelte"-->
+  </div>
+
+  <h2>Scales: data in, pixels out</h2>
+  <p>
+    A <strong>scale</strong> is a function mapping your data's domain to a visual
+    range. <code>scaleLinear().domain([0, max]).range([height, 0])</code> converts a
+    value into a y-pixel (note the flipped range — SVG's y grows downward, so we
+    invert it). <code>scaleBand</code> slices a width into evenly spaced, padded
+    columns. Master scales and most of D3 falls into place; they're the grammar that
+    keeps your visuals honest to the numbers.
+  </p>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V184.69l52.69-52.7a8,8,0,0,1,11.32,0L128,148.69,180.69,96H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V107.31l-58.34,58.35a8,8,0,0,1-11.32,0L104,148.69,40,212.69V208Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The Svelte ↔ D3 bridge is one <code>$effect</code>.</strong> Keep your
+      data in <code>$state</code> (or a prop), and put the D3 join inside an
+      <code>$effect</code> that reads it. When the data changes, Svelte re-runs the
+      effect, D3 re-joins, and the transitions play. You get Svelte's reactivity
+      <em>and</em> D3's industrial-strength rendering — the best of both. Let Svelte
+      own the data; let D3 own the SVG.
+    </div>
+  </div>
+
+  <h2>join(): the three lifecycles</h2>
+  <p>
+    <code>selection.data(arr).join(enter, update, exit)</code> is the heart of it.
+    The <strong>enter</strong> function creates DOM for new data and sets its starting
+    state (bars begin at zero height). <strong>update</strong> handles nodes that
+    still exist. <strong>exit</strong> animates departing nodes out and removes them.
+    Chain a shared <code>.transition()</code> and every one of those changes is
+    smooth. This pattern scales from a five-bar demo to a live financial dashboard.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("d3-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.d3 === "undefined") { setTimeout(build, 120); return; }
+      const d3 = window.d3;
+      const width = 360, height = 200;
+      mount.style.flexDirection = "column";
+      const svg = d3.create("svg").attr("viewBox", "0 0 " + width + " " + height).attr("role", "img").attr("aria-label", "Animated bar chart");
+      svg.node().style.cssText = "width:min(420px,92%);height:auto;overflow:visible";
+      const controls = document.createElement("div");
+      controls.style.cssText = "display:flex;gap:.6rem";
+      const btnShuffle = mkBtn("Shuffle");
+      const btnAdd = mkBtn("Add");
+      const btnRemove = mkBtn("Remove");
+      controls.append(btnShuffle, btnAdd, btnRemove);
+      mount.append(svg.node(), controls);
+
+      let data = d3.range(6).map(() => 20 + Math.random() * 80);
+      const color = d3.scaleSequential(d3.interpolateCool);
+
+      function render() {
+        const x = d3.scaleBand().domain(d3.range(data.length)).range([0, width]).padding(0.18);
+        const max = d3.max(data) || 1;
+        const y = d3.scaleLinear().domain([0, max]).range([height, 0]);
+        color.domain([0, max]);
+        const dur = window.MOTION_REDUCED ? 0 : 750;
+        const t = svg.transition().duration(dur).ease(d3.easeCubicOut);
+        svg.selectAll("rect")
+          .data(data)
+          .join(
+            (enter) => enter.append("rect").attr("x", (d, i) => x(i)).attr("width", x.bandwidth()).attr("rx", 5).attr("y", height).attr("height", 0),
+            (update) => update,
+            (exit) => exit.transition(t).attr("y", height).attr("height", 0).remove()
+          )
+          .transition(t)
+          .attr("x", (d, i) => x(i)).attr("width", x.bandwidth())
+          .attr("y", (d) => y(d)).attr("height", (d) => height - y(d))
+          .attr("fill", (d) => color(d));
+      }
+      function mkBtn(label) {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.style.cssText = "padding:.45rem 1rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#d6dbe6;cursor:pointer;font-size:.8rem";
+        return b;
+      }
+      btnShuffle.onclick = () => { data = data.map(() => 20 + Math.random() * 80); render(); };
+      btnAdd.onclick = () => { if (data.length < 11) { data = [...data, 20 + Math.random() * 80]; render(); } };
+      btnRemove.onclick = () => { if (data.length > 2) { data = data.slice(0, -1); render(); } };
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.d3 = () => { data = data.map(() => 20 + Math.random() * 80); render(); };
+      render();
+    }
+    build();
+  })();
+</script>

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pin, Scrub &amp; Parallax — MOTION</title>
+  <meta name="description" content="ScrollTrigger turns the scrollbar into a timeline playhead. Pin sections, scrub animations to scroll, build parallax depth — this is the engine behind nearly every award-winning scrollytelling site." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/ScrollTrigger.min.js" defer></script>
+</head>
+<body data-slug="60-scrolltrigger">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M6 · GSAP ScrollTrigger</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Pin, Scrub & Parallax</h1>
+        <p class="hero__lead" data-reveal="120">ScrollTrigger turns the scrollbar into a timeline playhead. Pin sections, scrub animations to scroll, build parallax depth — this is the engine behind nearly every award-winning scrollytelling site.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    Most "wow" moments on premium sites happen as you scroll: a product rotates, text
+    locks in place while imagery flies past, layers drift at different speeds. All of
+    it is <strong>ScrollTrigger</strong> — a GSAP plugin (free, like the rest) that
+    connects any animation to the scroll position. Three ideas cover almost everything.
+  </p>
+
+  <h2>Scrub, parallax &amp; pin — live</h2>
+  <p>
+    <strong>Scroll inside the panel below.</strong> The glow drifts slowly behind the
+    content (parallax), the headline scales in lockstep with your scroll (scrub), and
+    the card pins in place for a beat before releasing. Scroll back up and it all
+    rewinds — because the scrollbar is the playhead.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · scroll me ↓</span>
+      <div id="st-scroller" style="position:relative;width:100%;height:340px;overflow-y:auto;overflow-x:hidden"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/ScrollScene.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/ScrollScene.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  import type { Attachment } from 'svelte/attachments';
+
+  // Register the plugin once. In a real app, do this in a shared module
+  // (src/lib/gsap.ts) so it only runs a single time — see the course app.
+  gsap.registerPlugin(ScrollTrigger);
+
+  // This attachment wires three scroll-driven effects to a section:
+  //   1. a pinned panel that stays put while you scroll "through" it
+  //   2. layers that parallax at different speeds for depth
+  //   3. a headline whose progress is *scrubbed* directly by the scrollbar
+  const scrollScene: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const q = gsap.utils.selector(node);
+    const ctx = gsap.context(() =&gt; {
+      // Parallax: background drifts slower than foreground = perceived depth.
+      gsap.to(q('.bg'), {
+        yPercent: -25,
+        ease: 'none',
+        scrollTrigger: { trigger: node, start: 'top bottom', end: 'bottom top', scrub: true }
+      });
+
+      // Scrub: tie the headline's reveal directly to scroll position. With
+      // scrub:true the animation has no duration of its own — the scrollbar IS
+      // the playhead, so scrolling back rewinds it.
+      gsap.from(q('.headline'), {
+        scale: 0.7,
+        opacity: 0,
+        ease: 'none',
+        scrollTrigger: { trigger: node, start: 'top center', end: 'center center', scrub: true }
+      });
+
+      // Pin: freeze the card in place for one viewport of scrolling, then release.
+      ScrollTrigger.create({
+        trigger: q('.pin'),
+        start: 'center center',
+        end: '+=400',
+        pin: true,
+        pinSpacing: true
+      });
+    }, node);
+
+    return () =&gt; ctx.revert(); // kills tweens AND their ScrollTriggers
+  };
+&lt;/script&gt;
+
+&lt;section class="scene" {@attach scrollScene}&gt;
+  &lt;div class="bg" aria-hidden="true"&gt;&lt;/div&gt;
+  &lt;h2 class="headline"&gt;Scroll writes the story&lt;/h2&gt;
+  &lt;div class="pin"&gt;Pinned while you scroll&lt;/div&gt;
+&lt;/section&gt;
+
+&lt;style&gt;
+  .scene { position: relative; min-height: 220vh; display: grid; place-items: center; overflow: clip; }
+  .bg { position: absolute; inset: -20% 0; background: radial-gradient(40% 40% at 50% 30%, #7c5cff55, transparent); }
+  .headline { font-size: clamp(2rem, 6vw, 4rem); color: #f4f6fb; text-align: center; }
+  .pin { padding: 1rem 2rem; border-radius: 14px; background: #11141f; border: 1px solid #1b2030; color: #d6dbe6; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>The three properties that matter</h2>
+  <ul>
+    <li><strong><code>trigger</code> + <code>start</code>/<code>end</code></strong> —
+      which element, and the scroll positions where the effect begins and ends.
+      <code>start: 'top center'</code> reads as "when the top of the trigger hits the
+      center of the viewport." This little grammar controls everything.</li>
+    <li><strong><code>scrub: true</code></strong> — bind the animation's progress
+      directly to scroll. No fixed duration; scroll forward to advance, back to
+      rewind. Use a number (<code>scrub: 1</code>) to add a smooth catch-up lag.</li>
+    <li><strong><code>pin: true</code></strong> — lock the trigger element in place
+      while the page scrolls "through" it. This is how those sticky, full-screen
+      story beats are built.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Always clean up your ScrollTriggers.</strong> Each one registers global
+      scroll listeners and reserves layout space for pins. In SvelteKit, where pages
+      mount and unmount as you navigate, orphaned triggers cause ghost scroll jumps.
+      Our <code>gsap.context()</code> + <code>ctx.revert()</code> pattern handles this
+      automatically — reverting a context kills the tweens <em>and</em> their attached
+      ScrollTriggers in one call. (In the demo we set a custom <code>scroller</code>
+      so it scrolls inside the box; in your app you'll usually omit that and use the
+      window.)
+    </div>
+  </div>
+
+  <h2>Driving a whole timeline with scroll</h2>
+  <p>
+    The real power move: attach a ScrollTrigger to an entire <em>timeline</em>. Build
+    a multi-step sequence as you learned last lesson, then add
+    <code>scrollTrigger: { trigger, scrub: true }</code> to it. Now your whole
+    choreography plays out across the scroll distance — perfect for product walkthroughs
+    and horizontal-scroll galleries, which we tackle in the next lesson.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const scroller = document.getElementById("st-scroller");
+    if (!scroller) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.ScrollTrigger === "undefined") {
+        setTimeout(build, 120); return;
+      }
+      const gsap = window.gsap;
+      const ScrollTrigger = window.ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+
+      scroller.innerHTML =
+        '<div class="st-content" style="position:relative;min-height:1100px;padding-top:40px">' +
+          '<div class="st-bg" aria-hidden="true" style="position:absolute;inset:-10% 0;background:radial-gradient(40% 30% at 50% 25%,#7c5cff55,transparent);pointer-events:none"></div>' +
+          '<h2 class="st-headline" style="position:relative;text-align:center;font-size:clamp(1.6rem,6vw,2.6rem);color:#f4f6fb;margin:80px 0 0">Scroll writes the story</h2>' +
+          '<div style="height:160px"></div>' +
+          '<div class="st-pin" style="margin:0 auto;width:max-content;padding:1rem 2rem;border-radius:14px;background:#11141f;border:1px solid #2a3142;color:#d6dbe6">Pinned while you scroll</div>' +
+          '<div style="height:520px;display:grid;place-items:center;color:#3a4254;font-size:.8rem">keep scrolling ↑ then back up to rewind</div>' +
+        "</div>";
+
+      const q = gsap.utils.selector(scroller);
+      gsap.to(q(".st-bg"), {
+        yPercent: -25, ease: "none",
+        scrollTrigger: { scroller, trigger: q(".st-content"), start: "top top", end: "bottom bottom", scrub: true }
+      });
+      gsap.from(q(".st-headline"), {
+        scale: 0.7, opacity: 0, ease: "none",
+        scrollTrigger: { scroller, trigger: q(".st-headline"), start: "top bottom", end: "center center", scrub: true }
+      });
+      ScrollTrigger.create({
+        scroller, trigger: q(".st-pin"), start: "center center", end: "+=260", pin: true, pinSpacing: true
+      });
+      // The custom scroller needs ScrollTrigger to know about it.
+      ScrollTrigger.refresh();
+    }
+    build();
+  })();
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M6 GSAP ScrollTrigger</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

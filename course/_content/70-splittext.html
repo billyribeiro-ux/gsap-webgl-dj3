@@ -1,0 +1,90 @@
+<!--lead: You've seen it on every Apple keynote page and Netflix title card: a headline whose letters rise into view as if from behind a mask. Here's exactly how it's done — and it's three lines of GSAP.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Type can't be animated character-by-character out of the box — a heading is one
+    text node, not a hundred letters. <strong>SplitText</strong> fixes that: it
+    splits your text into individual <code>&lt;span&gt;</code>s for characters,
+    words and lines, so you can animate each one. Combined with a line
+    <em>mask</em>, you get the unmistakable cinematic reveal where letters slide up
+    from behind an invisible edge.
+  </p>
+
+  <h2>The masked headline reveal</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · SplitText</span>
+      <div id="split-demo" class="center" style="width:100%;height:100%;padding:1.5rem"></div>
+      <button class="stage__replay" type="button" data-replay="splittext" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <!--code file="splittext/SplitHeadline.svelte" name="src/lib/SplitHeadline.svelte"-->
+  </div>
+
+  <h2>Why the mask makes it cinematic</h2>
+  <p>
+    Splitting characters and staggering a <code>yPercent</code> rise already looks
+    good. The <em>mask</em> is what makes it look <strong>expensive</strong>. By
+    setting <code>mask: 'lines'</code>, SplitText wraps each line in a clipped
+    container. The characters animate up from <code>yPercent: 120</code> — fully
+    below their line — and emerge from behind that clip, so there's no "ghost" of the
+    letter visible before it arrives. That clean edge is the entire difference between
+    "nice" and "shot on a film set."
+  </p>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M227.32,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.32,96A16,16,0,0,0,227.32,73.37ZM51.31,160l90.35-90.35,16.68,16.69L74.34,176H51.31Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Two non-negotiables for crisp text reveals.</strong> First, split
+      <em>after</em> <code>document.fonts.ready</code> — if you split before the web
+      font loads, the lines wrap at the wrong widths and reflow mid-animation.
+      Second, always <code>split.revert()</code> on cleanup. SplitText injects a lot
+      of markup; reverting restores your original, accessible heading (vital for
+      screen readers and for re-running the effect). Our attachment does both.
+    </div>
+  </div>
+
+  <h2>Beyond the entrance</h2>
+  <p>
+    Once text is split you can do far more than reveal it: animate a gradient sweep
+    across the characters, scrub the reveal to scroll (combine with last lesson's
+    ScrollTrigger), or build a per-letter hover. SplitText also auto-adds
+    <code>aria-label</code> with the original text so the split version stays
+    accessible. This single plugin is responsible for a huge fraction of the
+    "how did they do that?" typography on the web.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("split-demo");
+    if (!mount) return;
+    let split = null;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.SplitText === "undefined") {
+        setTimeout(build, 120); return;
+      }
+      const gsap = window.gsap;
+      const SplitText = window.SplitText;
+      gsap.registerPlugin(SplitText);
+      const h = document.createElement("h1");
+      h.textContent = "Made for the big screen";
+      h.style.cssText =
+        "font-size:clamp(1.8rem,7vw,3.4rem);font-weight:800;letter-spacing:-.03em;line-height:1.02;text-align:center;max-width:14ch;background:linear-gradient(135deg,#f4f6fb,#aab2c5);-webkit-background-clip:text;background-clip:text;color:transparent";
+      mount.innerHTML = "";
+      mount.appendChild(h);
+
+      function play() {
+        if (window.MOTION_REDUCED) return;
+        if (split) split.revert();
+        split = new SplitText(h, { type: "lines,chars", mask: "lines" });
+        gsap.from(split.chars, { yPercent: 120, opacity: 0, duration: 0.9, ease: "expo.out", stagger: { each: 0.025, from: "start" } });
+      }
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.splittext = play;
+      document.fonts.ready.then(play);
+    }
+    build();
+  })();
+</script>

@@ -1,0 +1,97 @@
+<!--lead: SVG is the only image format you can animate from the inside. Master its anatomy and you unlock self-drawing logos, morphing shapes, and the living icons that make Phosphor sing.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    A bitmap (PNG, JPG) is a grid of coloured pixels — opaque to animation. An
+    <strong>SVG is a document</strong>: shapes, paths and points your code can reach
+    in and move. That's why every premium animated icon, every self-drawing
+    signature, every morphing logo is SVG. Today we learn its anatomy and the
+    single most useful SVG effect: <strong>draw-on</strong>.
+  </p>
+
+  <h2>The draw-on effect</h2>
+  <p>
+    Watch the ring and tick paint themselves. There's no library here — it's two CSS
+    properties most developers never learn to combine.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo</span>
+      <div id="draw-demo" class="center" style="width:100%;height:100%"></div>
+      <button class="stage__replay" type="button" data-replay="svgdraw" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <!--code file="svg/DrawOn.svelte" name="src/lib/DrawOn.svelte"-->
+  </div>
+
+  <h2>How it actually works</h2>
+  <p>
+    Every SVG <code>&lt;path&gt;</code>, <code>&lt;circle&gt;</code> and line has a
+    measurable length. Two stroke properties exploit that:
+  </p>
+  <ul>
+    <li><strong>stroke-dasharray</strong> turns a solid stroke into dashes. Set it to
+      the path's <em>full length</em> and you get one dash exactly as long as the
+      line — plus an equally long gap.</li>
+    <li><strong>stroke-dashoffset</strong> slides that dash pattern along the path.
+      Offset it by the full length and the visible dash is pushed completely off the
+      end — the line vanishes. Animate the offset back to <code>0</code> and it
+      <em>draws back in</em>.</li>
+  </ul>
+  <p>
+    Stagger the ring and the tick with a delay and you've choreographed a
+    confirmation animation that feels expensive. The same technique animates
+    signatures, maps, underlines and outline logos.
+  </p>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M222.14,58.87A8,8,0,0,0,216,56H54.68L49.79,29.14A16,16,0,0,0,34.05,16H16a8,8,0,0,0,0,16h18L59.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,152,204a28,28,0,1,0,28-28H83.17a8,8,0,0,1-7.87-6.57L72.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,222.14,58.87Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Tip: let SVG do the measuring.</strong> Add <code>pathLength="100"</code>
+      to any path and the browser pretends the path is exactly 100 units long. Now
+      <code>stroke-dasharray: 100</code> always equals "the whole thing" — no
+      JavaScript <code>getTotalLength()</code> needed. Perfect for responsive icons.
+    </div>
+  </div>
+
+  <h2>Where Phosphor comes in</h2>
+  <p>
+    Every icon you've seen in this course — the play triangle, the arrows, the spark
+    in these callouts — is a <strong>Phosphor</strong> icon: clean, consistent SVG
+    paths. Because they're SVG, you can do far more than recolour them. You can draw
+    them on, morph between weights, or animate individual paths. In your SvelteKit
+    app you'll install <code>phosphor-svelte</code> and get all 9,000+ icons as
+    tree-shakeable components. We build a living icon system from them next.
+  </p>
+  <p><code>pnpm add phosphor-svelte</code> — then <code>import { CheckCircle } from 'phosphor-svelte';</code></p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("draw-demo");
+    if (!mount) return;
+    if (!document.getElementById("svgdraw-kf")) {
+      const st = document.createElement("style");
+      st.id = "svgdraw-kf";
+      st.textContent = `
+        .svgdraw{width:min(60%,220px);aspect-ratio:1}
+        .svgdraw .ring,.svgdraw .tick{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+        .svgdraw .ring{stroke:#7c5cff;stroke-dasharray:540;stroke-dashoffset:540;animation:svgdrawkf 1s cubic-bezier(.16,1,.3,1) forwards}
+        .svgdraw .tick{stroke:#19e3d6;stroke-dasharray:130;stroke-dashoffset:130;animation:svgdrawkf .5s cubic-bezier(.16,1,.3,1) .7s forwards}
+        @keyframes svgdrawkf{to{stroke-dashoffset:0}}
+        @media (prefers-reduced-motion: reduce){.svgdraw .ring,.svgdraw .tick{animation:none;stroke-dashoffset:0}}`;
+      document.head.appendChild(st);
+    }
+    function render() {
+      mount.innerHTML =
+        '<svg class="svgdraw" viewBox="0 0 200 200" role="img" aria-label="Animated check mark">' +
+        '<circle class="ring" cx="100" cy="100" r="84"/>' +
+        '<path class="tick" d="M64 104 L92 132 L140 74"/></svg>';
+    }
+    window.MotionDemos = window.MotionDemos || {};
+    window.MotionDemos.svgdraw = render;
+    render();
+  })();
+</script>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Animated Data with enter/update/exit — MOTION</title>
+  <meta name="description" content="When the motion IS the data — bars that grow, lines that redraw, points that fly to new positions as numbers change — you want D3. Its enter/update/exit model is the most elegant idea in data visualization." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/d3@7/dist/d3.min.js" defer></script>
+</head>
+<body data-slug="80-d3-transitions">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M8 · D3 Motion</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Animated Data with enter/update/exit</h1>
+        <p class="hero__lead" data-reveal="120">When the motion IS the data — bars that grow, lines that redraw, points that fly to new positions as numbers change — you want D3. Its enter/update/exit model is the most elegant idea in data visualization.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    GSAP animates elements. D3 animates <strong>data</strong>. The distinction
+    matters: with D3 you don't say "move this bar to 140px tall," you say "this bar
+    represents the number 73," and when 73 becomes 20, D3 transitions the bar to its
+    new height for you. Bind data to shapes, describe the transitions once, and the
+    chart stays in sync with reality — animating every change automatically.
+  </p>
+
+  <h2>A self-animating bar chart</h2>
+  <p>
+    Press <strong>Shuffle</strong>. Bars smoothly grow and shrink to new values and
+    recolor along a scale. Press <strong>Add / Remove</strong> and watch brand-new
+    bars rise from the baseline (<em>enter</em>) while departing ones sink and fade
+    (<em>exit</em>) — all choreographed by D3's data join.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · D3</span>
+      <div id="d3-demo" class="center stack" style="width:100%;height:100%;gap:1rem;padding:1.25rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/D3Bars.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/D3Bars.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as d3 from 'd3';
+
+  // D3's magic isn't drawing — it's the *data join*. You bind an array to DOM
+  // nodes and describe what happens to nodes that are new (enter), that persist
+  // (update), or that are gone (exit). Wrap those in transitions and your chart
+  // animates itself whenever the data changes. No manual tweening at all.
+  let { data }: { data: number[] } = $props();
+
+  let svgEl: SVGSVGElement | undefined = $state();
+  const width = 360;
+  const height = 220;
+
+  const color = d3.scaleSequential(d3.interpolateCool);
+
+  // This effect re-runs automatically whenever `data` changes, because it reads
+  // `data` (a reactive prop). That's the bridge between Svelte's reactivity and
+  // D3's imperative drawing.
+  $effect(() =&gt; {
+    if (!svgEl) return;
+    const svg = d3.select(svgEl);
+
+    const x = d3
+      .scaleBand&lt;number&gt;()
+      .domain(d3.range(data.length))
+      .range([0, width])
+      .padding(0.18);
+
+    const max = d3.max(data) ?? 1;
+    const y = d3.scaleLinear().domain([0, max]).range([height, 0]);
+    color.domain([0, max]);
+
+    const t = svg.transition().duration(750).ease(d3.easeCubicOut) as d3.Transition&lt;
+      SVGSVGElement,
+      unknown,
+      null,
+      undefined
+    &gt;;
+
+    svg
+      .selectAll&lt;SVGRectElement, number&gt;('rect')
+      .data(data)
+      .join(
+        (enter) =&gt;
+          enter
+            .append('rect')
+            .attr('x', (_d, i) =&gt; x(i) ?? 0)
+            .attr('width', x.bandwidth())
+            .attr('rx', 5)
+            .attr('y', height) // new bars grow up from the baseline
+            .attr('height', 0),
+        (update) =&gt; update,
+        (exit) =&gt; exit.transition(t).attr('y', height).attr('height', 0).remove()
+      )
+      .transition(t)
+      .attr('x', (_d, i) =&gt; x(i) ?? 0)
+      .attr('width', x.bandwidth())
+      .attr('y', (d) =&gt; y(d))
+      .attr('height', (d) =&gt; height - y(d))
+      .attr('fill', (d) =&gt; color(d));
+  });
+&lt;/script&gt;
+
+&lt;svg bind:this={svgEl} viewBox="0 0 {width} {height}" class="chart" role="img" aria-label="Animated bar chart"&gt;&lt;/svg&gt;
+
+&lt;style&gt;
+  .chart { width: min(420px, 92%); height: auto; overflow: visible; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>Scales: data in, pixels out</h2>
+  <p>
+    A <strong>scale</strong> is a function mapping your data's domain to a visual
+    range. <code>scaleLinear().domain([0, max]).range([height, 0])</code> converts a
+    value into a y-pixel (note the flipped range — SVG's y grows downward, so we
+    invert it). <code>scaleBand</code> slices a width into evenly spaced, padded
+    columns. Master scales and most of D3 falls into place; they're the grammar that
+    keeps your visuals honest to the numbers.
+  </p>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V184.69l52.69-52.7a8,8,0,0,1,11.32,0L128,148.69,180.69,96H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V107.31l-58.34,58.35a8,8,0,0,1-11.32,0L104,148.69,40,212.69V208Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The Svelte ↔ D3 bridge is one <code>$effect</code>.</strong> Keep your
+      data in <code>$state</code> (or a prop), and put the D3 join inside an
+      <code>$effect</code> that reads it. When the data changes, Svelte re-runs the
+      effect, D3 re-joins, and the transitions play. You get Svelte's reactivity
+      <em>and</em> D3's industrial-strength rendering — the best of both. Let Svelte
+      own the data; let D3 own the SVG.
+    </div>
+  </div>
+
+  <h2>join(): the three lifecycles</h2>
+  <p>
+    <code>selection.data(arr).join(enter, update, exit)</code> is the heart of it.
+    The <strong>enter</strong> function creates DOM for new data and sets its starting
+    state (bars begin at zero height). <strong>update</strong> handles nodes that
+    still exist. <strong>exit</strong> animates departing nodes out and removes them.
+    Chain a shared <code>.transition()</code> and every one of those changes is
+    smooth. This pattern scales from a five-bar demo to a live financial dashboard.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("d3-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.d3 === "undefined") { setTimeout(build, 120); return; }
+      const d3 = window.d3;
+      const width = 360, height = 200;
+      mount.style.flexDirection = "column";
+      const svg = d3.create("svg").attr("viewBox", "0 0 " + width + " " + height).attr("role", "img").attr("aria-label", "Animated bar chart");
+      svg.node().style.cssText = "width:min(420px,92%);height:auto;overflow:visible";
+      const controls = document.createElement("div");
+      controls.style.cssText = "display:flex;gap:.6rem";
+      const btnShuffle = mkBtn("Shuffle");
+      const btnAdd = mkBtn("Add");
+      const btnRemove = mkBtn("Remove");
+      controls.append(btnShuffle, btnAdd, btnRemove);
+      mount.append(svg.node(), controls);
+
+      let data = d3.range(6).map(() => 20 + Math.random() * 80);
+      const color = d3.scaleSequential(d3.interpolateCool);
+
+      function render() {
+        const x = d3.scaleBand().domain(d3.range(data.length)).range([0, width]).padding(0.18);
+        const max = d3.max(data) || 1;
+        const y = d3.scaleLinear().domain([0, max]).range([height, 0]);
+        color.domain([0, max]);
+        const dur = window.MOTION_REDUCED ? 0 : 750;
+        const t = svg.transition().duration(dur).ease(d3.easeCubicOut);
+        svg.selectAll("rect")
+          .data(data)
+          .join(
+            (enter) => enter.append("rect").attr("x", (d, i) => x(i)).attr("width", x.bandwidth()).attr("rx", 5).attr("y", height).attr("height", 0),
+            (update) => update,
+            (exit) => exit.transition(t).attr("y", height).attr("height", 0).remove()
+          )
+          .transition(t)
+          .attr("x", (d, i) => x(i)).attr("width", x.bandwidth())
+          .attr("y", (d) => y(d)).attr("height", (d) => height - y(d))
+          .attr("fill", (d) => color(d));
+      }
+      function mkBtn(label) {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.style.cssText = "padding:.45rem 1rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#d6dbe6;cursor:pointer;font-size:.8rem";
+        return b;
+      }
+      btnShuffle.onclick = () => { data = data.map(() => 20 + Math.random() * 80); render(); };
+      btnAdd.onclick = () => { if (data.length < 11) { data = [...data, 20 + Math.random() * 80]; render(); } };
+      btnRemove.onclick = () => { if (data.length > 2) { data = data.slice(0, -1); render(); } };
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.d3 = () => { data = data.map(() => 20 + Math.random() * 80); render(); };
+      render();
+    }
+    build();
+  })();
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M8 D3 Motion</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>
