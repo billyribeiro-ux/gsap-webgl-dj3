@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Postprocessing — Bloom &amp; Chromatic Aberration — MOTION</title>
+  <meta name="description" content="The difference between "a 3D model in a browser" and "a cinematic experience" is postprocessing — the full-screen grade applied after rendering. We chain bloom and chromatic aberration through Three.js's EffectComposer." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-slug="c4-postprocessing">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M12 · Advanced Cinematic FX</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Postprocessing — Bloom & Chromatic Aberration</h1>
+        <p class="hero__lead" data-reveal="120">The difference between "a 3D model in a browser" and "a cinematic experience" is postprocessing — the full-screen grade applied after rendering. We chain bloom and chromatic aberration through Three.js's EffectComposer.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    A film is colour-graded after it's shot; great 3D on the web is graded after it's
+    rendered. <strong>Postprocessing</strong> takes the rendered frame and pushes it
+    through a stack of full-screen shader <em>passes</em> before it hits the canvas.
+    Three.js gives us <code>EffectComposer</code> to chain them. Two passes do most of the
+    cinematic heavy lifting: <strong>bloom</strong> (glow) and <strong>chromatic
+    aberration</strong> (lens colour-fringing).
+  </p>
+
+  <h2>Bloom + aberration</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · EffectComposer pipeline</span>
+      <canvas id="bloom-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <div class="codepanel" data-file="src/lib/Bloom.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/Bloom.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as THREE from 'three';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import type { Attachment } from 'svelte/attachments';
+
+  // Postprocessing is what makes 3D look like a movie. We render the scene, then
+  // push it through a chain of full-screen passes: UnrealBloom makes bright
+  // pixels glow, and a custom shader adds chromatic aberration at the edges. This
+  // is the "EffectComposer" pipeline every cinematic Three.js site uses.
+  const ChromaticAberration = {
+    uniforms: { tDiffuse: { value: null as THREE.Texture | null }, uAmount: { value: 0.004 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D tDiffuse;
+      uniform float uAmount;
+      varying vec2 vUv;
+      void main() {
+        vec2 dir = vUv - 0.5;
+        float offset = uAmount * length(dir) * 2.0;        // stronger toward the edges
+        vec2 n = normalize(dir + 1e-5);
+        float r = texture2D(tDiffuse, vUv + n * offset).r;
+        float g = texture2D(tDiffuse, vUv).g;
+        float b = texture2D(tDiffuse, vUv - n * offset).b;
+        gl_FragColor = vec4(r, g, b, 1.0);
+      }
+    `
+  };
+
+  const pipeline: Attachment&lt;HTMLCanvasElement&gt; = (canvas) =&gt; {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 5;
+
+    // A dark object with a bright EMISSIVE color — bloom only blooms bright pixels.
+    const geo = new THREE.TorusKnotGeometry(1, 0.3, 160, 32);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x05060a,
+      emissive: new THREE.Color('#7c5cff'),
+      emissiveIntensity: 2.2,
+      metalness: 0.5,
+      roughness: 0.3
+    });
+    const knot = new THREE.Mesh(geo, mat);
+    scene.add(knot);
+    scene.add(new THREE.PointLight(0x19e3d6, 40, 0, 1.6).translateX(4).translateY(3));
+
+    // ── The composer chain ──────────────────────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 1.15, 0.5, 0.0);
+    composer.addPass(bloom);
+
+    const chroma = new ShaderPass(ChromaticAberration);
+    composer.addPass(chroma); // final pass → renders to the canvas
+
+    const resize = () =&gt; {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      renderer.setSize(w, h, false);
+      composer.setSize(w, h);
+      bloom.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+
+    let raf = 0;
+    const clock = new THREE.Clock();
+    const tick = () =&gt; {
+      const t = clock.getElapsedTime();
+      knot.rotation.x = t * 0.3;
+      knot.rotation.y = t * 0.4;
+      mat.emissiveIntensity = 2.0 + Math.sin(t * 2.0) * 0.6; // gentle pulse
+      composer.render(); // NOT renderer.render — the composer drives the chain
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () =&gt; {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      geo.dispose();
+      mat.dispose();
+      composer.dispose();
+      renderer.dispose();
+    };
+  };
+&lt;/script&gt;
+
+&lt;canvas class="viewport" {@attach pipeline}&gt;&lt;/canvas&gt;
+
+&lt;style&gt;
+  .viewport { width: 100%; height: 100%; min-height: 320px; display: block; background: #05060a; border-radius: 12px; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>The composer pipeline</h2>
+  <p>
+    A composer is an ordered list of passes. The frame flows through each in turn; the last
+    one draws to the screen:
+  </p>
+  <ul>
+    <li><strong><code>RenderPass</code></strong> — renders your scene into a texture (the
+      starting frame). Always first.</li>
+    <li><strong><code>UnrealBloomPass</code></strong> — finds the brightest pixels,
+      blurs them, and adds them back, so anything emissive <em>glows</em>. The knot here is
+      nearly black with a bright <code>emissive</code> colour, so only the glow blooms. Its
+      key controls are <em>strength</em>, <em>radius</em> and <em>threshold</em>.</li>
+    <li><strong>A custom <code>ShaderPass</code></strong> — our chromatic-aberration shader,
+      sampling the composited frame three times with red/blue offsets that grow toward the
+      edges. This is how you write your own grade: any full-screen effect is just a
+      fragment shader with a <code>tDiffuse</code> input (the previous pass's output).</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Bloom only blooms bright pixels.</strong> The whole look depends on
+      <em>contrast</em>: a dark scene with a few very bright (emissive, or HDR) elements. If
+      you bloom an evenly-lit scene, everything turns to mush. Set a sensible
+      <code>threshold</code> so only the highlights glow, and pair it with a low-key
+      background. Same discipline as cinematography — bloom is your practical lights, not a
+      flood. In Threlte, <code>@threlte/extras</code> wraps these passes as
+      <code>&lt;Bloom&gt;</code> components so you compose the grade declaratively.
+    </div>
+  </div>
+
+  <p>
+    Other passes you'll reach for: depth of field (cinematic focus), film grain and
+    vignette (texture and mood), SSAO (contact shadows for realism), and god-rays. Stack a
+    few with restraint and a simple scene starts to look like a render from a studio.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+  import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+  import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+  import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+
+  const canvas = document.getElementById("bloom-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 5;
+    const geo = new THREE.TorusKnotGeometry(1, 0.3, 160, 32);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x05060a, emissive: new THREE.Color("#7c5cff"), emissiveIntensity: 2.2, metalness: 0.5, roughness: 0.3 });
+    const knot = new THREE.Mesh(geo, mat);
+    scene.add(knot);
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 1.15, 0.5, 0.0);
+    composer.addPass(bloom);
+    const chroma = new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, uAmount: { value: 0.004 } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader: "uniform sampler2D tDiffuse; uniform float uAmount; varying vec2 vUv; void main(){ vec2 dir=vUv-0.5; float o=uAmount*length(dir)*2.0; vec2 n=normalize(dir+1e-5); float r=texture2D(tDiffuse,vUv+n*o).r; float g=texture2D(tDiffuse,vUv).g; float b=texture2D(tDiffuse,vUv-n*o).b; gl_FragColor=vec4(r,g,b,1.0); }"
+    });
+    composer.addPass(chroma);
+    function resize() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); composer.setSize(w, h); bloom.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() {
+      const t = reduce ? 0.6 : clock.getElapsedTime();
+      knot.rotation.x = t * 0.3; knot.rotation.y = t * 0.4;
+      mat.emissiveIntensity = 2.0 + Math.sin(t * 2.0) * 0.6;
+      composer.render();
+      if (!reduce) requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M12 Advanced Cinematic FX</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

@@ -65,6 +65,12 @@ const LIBS = {
   "b0-netflix-hero": ["gsap", "splittext", "scrolltrigger"],
   "b1-apple-reveal": ["gsap", "scrolltrigger"],
   "b2-title-sequence": ["gsap", "splittext"],
+  "c0-glitch": [],
+  "c1-text-scramble": [],
+  "c2-image-distortion": ["three"],
+  "c3-gpu-particles": ["three"],
+  "c4-postprocessing": ["three"],
+  "c5-scroll-skew": [],
   "00-welcome": [],
   "01-principles-of-motion": []
 };

@@ -38,7 +38,13 @@ export const lessons: Lesson[] = [
   { slug: 'threlte-scroll', title: 'Scroll-Linked 3D', module: 'Threlte', blurb: 'Drive a Threlte scene from scroll.' },
   { slug: 'netflix-hero', title: 'Cinematic Hero', module: 'Capstone', blurb: 'Everything, on one timeline.' },
   { slug: 'apple-reveal', title: 'Product Reveal', module: 'Capstone', blurb: 'Pinned, scrubbed Apple-style story.' },
-  { slug: 'title-sequence', title: 'Title Sequence', module: 'Capstone', blurb: 'A Hollywood-grade movie intro.' }
+  { slug: 'title-sequence', title: 'Title Sequence', module: 'Capstone', blurb: 'A Hollywood-grade movie intro.' },
+  { slug: 'glitch', title: 'The Glitch', module: 'Cinematic FX', blurb: 'RGB split, scanlines & datamosh.' },
+  { slug: 'scramble', title: 'Text Decode', module: 'Cinematic FX', blurb: 'Resolve text out of glyph noise.' },
+  { slug: 'distortion', title: 'Hover Distortion', module: 'Cinematic FX', blurb: 'A shader that warps to the cursor.' },
+  { slug: 'particles', title: 'GPU Particles', module: 'Cinematic FX', blurb: 'Morphing point cloud, 6k strong.' },
+  { slug: 'bloom', title: 'Bloom & Aberration', module: 'Cinematic FX', blurb: 'The EffectComposer cinematic grade.' },
+  { slug: 'scroll-skew', title: 'Velocity Skew', module: 'Cinematic FX', blurb: 'Inertia scroll that shears with speed.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

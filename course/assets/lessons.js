@@ -126,6 +126,19 @@ window.COURSE = {
         { slug: "b1-apple-reveal", title: "An Apple-Style Product Reveal", status: "live" },
         { slug: "b2-title-sequence", title: "A Hollywood Title Sequence", status: "live" }
       ]
+    },
+    {
+      num: "M12",
+      title: "Advanced Cinematic FX",
+      desc: "The boss level — glitch, distortion, GPU particles and the cinematic grade.",
+      lessons: [
+        { slug: "c0-glitch", title: "The Glitch — RGB Split, Scanlines & Datamosh", status: "live" },
+        { slug: "c1-text-scramble", title: "Text Scramble / Decode", status: "live" },
+        { slug: "c2-image-distortion", title: "WebGL Hover Distortion (Shaders)", status: "live" },
+        { slug: "c3-gpu-particles", title: "Morphing GPU Particles", status: "live" },
+        { slug: "c4-postprocessing", title: "Postprocessing — Bloom & Chromatic Aberration", status: "live" },
+        { slug: "c5-scroll-skew", title: "Inertia Scroll & Velocity Skew", status: "live" }
+      ]
     }
   ]
 };

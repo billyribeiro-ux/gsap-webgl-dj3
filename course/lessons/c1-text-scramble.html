@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Text Scramble / Decode — MOTION</title>
+  <meta name="description" content="That "decrypting" text you've seen in sci-fi UIs and hacker movies — letters churning through random glyphs before snapping into the real message — is a few lines of JavaScript and a great way to draw the eye to a headline." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+</head>
+<body data-slug="c1-text-scramble">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M12 · Advanced Cinematic FX</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Text Scramble / Decode</h1>
+        <p class="hero__lead" data-reveal="120">That "decrypting" text you've seen in sci-fi UIs and hacker movies — letters churning through random glyphs before snapping into the real message — is a few lines of JavaScript and a great way to draw the eye to a headline.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    The scramble (or "decode") effect resolves text out of noise: each character flips
+    through random glyphs and then locks into its final letter. It reads as
+    <em>computation happening</em> — perfect for loading states, hero headlines, and
+    anything that wants a techno-thriller edge. The craft is in the timing: stagger when
+    each character locks so the resolve feels organic, not like a wipe.
+  </p>
+
+  <h2>Decode on hover</h2>
+  <p>
+    It runs once on load; hover to re-trigger. Watch individual characters settle at
+    different moments — that randomized lock order is the whole trick.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · hover to re-decode</span>
+      <div id="scramble-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/Scramble.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/Scramble.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { prefersReducedMotion } from 'svelte/motion';
+
+  // The "decode" effect: text resolves out of a storm of random glyphs, one
+  // character locking into place at a time. Each slot gets a random start/end
+  // frame, so the resolve looks organic rather than a clean left-to-right wipe.
+  // We render per-character spans (no {@html}) so it stays XSS-safe.
+  let { text = 'ACCESS GRANTED' }: { text?: string } = $props();
+
+  type Slot = { char: string; solved: boolean };
+
+  const GLYPHS = '!&lt;&gt;-_\\/[]{}—=+*^?#01ABCXYZ';
+  let slots = $state&lt;Slot[]&gt;([]);
+  let raf = 0;
+
+  function scramble(target: string): void {
+    cancelAnimationFrame(raf);
+
+    const meta = [...target].map((to) =&gt; {
+      const start = Math.floor(Math.random() * 18);
+      return { to, start, end: start + 10 + Math.floor(Math.random() * 22) };
+    });
+
+    if (prefersReducedMotion.current) {
+      slots = meta.map((m) =&gt; ({ char: m.to, solved: true }));
+      return;
+    }
+
+    const cache: string[] = meta.map(() =&gt; ' ');
+    let frame = 0;
+    const tick = () =&gt; {
+      let done = 0;
+      slots = meta.map((m, i) =&gt; {
+        if (frame &gt;= m.end) {
+          done++;
+          return { char: m.to, solved: true };
+        }
+        if (frame &gt;= m.start) {
+          if (cache[i] === ' ' || Math.random() &lt; 0.28) {
+            cache[i] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+          }
+          return { char: cache[i], solved: false };
+        }
+        return { char: ' ', solved: false };
+      });
+      if (done === meta.length) return;
+      frame++;
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  // Decode once on mount.
+  $effect(() =&gt; {
+    scramble(text);
+    return () =&gt; cancelAnimationFrame(raf);
+  });
+&lt;/script&gt;
+
+&lt;button class="decode" aria-label={text} onpointerenter={() =&gt; scramble(text)}&gt;
+  &lt;span aria-hidden="true"&gt;
+    {#each slots as slot, i (i)}&lt;span class="cell" class:ghost={!slot.solved}&gt;{slot.char}&lt;/span&gt;{/each}
+  &lt;/span&gt;
+&lt;/button&gt;
+
+&lt;style&gt;
+  .decode {
+    font-family: ui-monospace, 'JetBrains Mono', monospace;
+    font-size: clamp(1.4rem, 5vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #19e3d6;
+    background: none;
+    border: 1px solid color-mix(in oklab, #19e3d6 35%, transparent);
+    border-radius: 10px;
+    padding: 0.8rem 1.4rem;
+    cursor: pointer;
+    white-space: pre;
+    text-shadow: 0 0 12px color-mix(in oklab, #19e3d6 50%, transparent);
+    transition: box-shadow 0.3s, border-color 0.3s;
+  }
+  .decode:hover { border-color: #19e3d6; box-shadow: 0 0 24px -6px #19e3d6; }
+  .cell { display: inline-block; }
+  /* The mid-resolve glyphs are dimmed so the locked characters read as "solved". */
+  .ghost { color: color-mix(in oklab, #19e3d6 55%, #5b6478); }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>How the resolve works</h2>
+  <ul>
+    <li><strong>Per-character timelines.</strong> Each slot gets a random
+      <code>start</code> and <code>end</code> frame. Before <code>start</code> it shows
+      nothing; between the two it shows a random glyph (re-rolled ~28% of frames so it
+      flickers); at <code>end</code> it locks to the real character. Randomizing those
+      windows is what makes the decode feel alive.</li>
+    <li><strong>Render per-character, not as a string.</strong> We map the slots to
+      individual <code>&lt;span&gt;</code>s in the template instead of building an HTML
+      string. That keeps it XSS-safe (no <code>{@html}</code>) and lets us dim the
+      still-scrambling glyphs versus the locked ones — a small touch that sells the
+      "solving" feeling.</li>
+    <li><strong>One <code>requestAnimationFrame</code> loop</strong> advances the frame
+      counter and stops itself the instant every slot is solved. No wasted cycles.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Accessibility first.</strong> The churning glyphs are pure decoration, so
+      the real string lives in <code>aria-label</code> and the animated spans are
+      <code>aria-hidden</code>. A screen reader announces "ACCESS GRANTED" instantly,
+      while sighted users get the show. And under <code>prefers-reduced-motion</code> the
+      component skips straight to the final text — no churn at all.
+    </div>
+  </div>
+
+  <h2>Pair it with the rest</h2>
+  <p>
+    Scramble shines in combination: decode a headline <em>as it enters on scroll</em>
+    (ScrollTrigger), run it on a stat that's also counting up with a <code>Tween</code>,
+    or fire it on every route change for a UI that feels like a terminal. Swap the glyph
+    set to katakana for a Matrix flavor, or to your brand's character set for something
+    custom. Small effect, enormous personality.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("scramble-demo");
+    if (!mount) return;
+    mount.innerHTML = '<button class="sc-btn" aria-label="ACCESS GRANTED"><span class="sc-out" aria-hidden="true"></span></button>';
+    if (!document.getElementById("sc-kf")) {
+      var st = document.createElement("style");
+      st.id = "sc-kf";
+      st.textContent =
+        ".sc-btn{font-family:ui-monospace,monospace;font-size:clamp(1.4rem,5vw,2.6rem);font-weight:700;letter-spacing:.12em;color:#19e3d6;background:none;border:1px solid color-mix(in oklab,#19e3d6 35%,transparent);border-radius:10px;padding:.8rem 1.4rem;cursor:pointer;white-space:pre;text-shadow:0 0 12px color-mix(in oklab,#19e3d6 50%,transparent);transition:box-shadow .3s,border-color .3s}" +
+        ".sc-btn:hover{border-color:#19e3d6;box-shadow:0 0 24px -6px #19e3d6}" +
+        ".sc-cell{display:inline-block}.sc-ghost{color:color-mix(in oklab,#19e3d6 55%,#5b6478)}";
+      document.head.appendChild(st);
+    }
+    var out = mount.querySelector(".sc-out");
+    var btn = mount.querySelector(".sc-btn");
+    var GLYPHS = "!<>-_\\/[]{}—=+*^?#01ABCXYZ";
+    var text = "ACCESS GRANTED";
+    var raf;
+    function scramble() {
+      cancelAnimationFrame(raf);
+      if (window.MOTION_REDUCED) { out.textContent = text; return; }
+      var meta = [].map.call(text, function (to) {
+        var start = Math.floor(Math.random() * 18);
+        return { to: to, start: start, end: start + 10 + Math.floor(Math.random() * 22) };
+      });
+      var cache = meta.map(function () { return " "; });
+      var frame = 0;
+      function tick() {
+        var done = 0, html = "";
+        meta.forEach(function (m, i) {
+          if (frame >= m.end) { done++; html += '<span class="sc-cell">' + m.to + "</span>"; }
+          else if (frame >= m.start) {
+            if (cache[i] === " " || Math.random() < 0.28) cache[i] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+            html += '<span class="sc-cell sc-ghost">' + cache[i] + "</span>";
+          } else html += '<span class="sc-cell"> </span>';
+        });
+        out.innerHTML = html;
+        if (done === meta.length) return;
+        frame++; raf = requestAnimationFrame(tick);
+      }
+      tick();
+    }
+    btn.addEventListener("pointerenter", scramble);
+    scramble();
+  })();
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M12 Advanced Cinematic FX</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

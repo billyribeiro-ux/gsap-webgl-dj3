@@ -1,0 +1,85 @@
+<!--lead: The web's most luxurious sites all share a feel: the page scrolls with weight, content shearing subtly in the direction of travel. That's velocity-driven skew with inertia — and you can have it without hijacking the scrollbar.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    "Smooth scroll" sites (think Locomotive, Lenis, Studio Freight) feel different the
+    instant you touch the wheel: content lags and shears as if it has mass. The core idea
+    is simple — measure how fast the user is scrolling and <strong>skew the content by
+    that velocity</strong>, then ease the skew back to zero when they stop. We do it here
+    without taking over native scrolling, so it stays accessible and works with the
+    keyboard, trackpad and screen readers.
+  </p>
+
+  <h2>Scroll the panel — feel the weight</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · scroll fast vs slow</span>
+      <div id="skew-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <!--code file="fx/ScrollSkew.svelte" name="src/lib/ScrollSkew.svelte"-->
+  </div>
+
+  <h2>The two-value loop</h2>
+  <ul>
+    <li><strong>Velocity.</strong> In a <code>requestAnimationFrame</code> loop, compare
+      this frame's <code>scrollTop</code> to last frame's. The difference is velocity in
+      pixels-per-frame — positive scrolling down, negative up.</li>
+    <li><strong>A damped target.</strong> Turn velocity into a target skew (clamped so a
+      fast flick can't tear the layout), then ease the <em>current</em> skew toward it:
+      <code>current += (target - current) * 0.1</code>. That lerp is the inertia — the skew
+      ramps up as you accelerate and glides back to flat as you stop.</li>
+    <li><strong>Apply on the GPU.</strong> Write <code>transform: skewY(…)</code> (plus a
+      hair of <code>scaleY</code> for a motion-blur stretch) to the content wrapper.
+      transform-only, so it stays at 60fps no matter how long the list is.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Don't fight the scrollbar.</strong> Libraries that fully hijack scrolling can
+      break keyboard navigation, focus, find-in-page and accessibility — use them
+      deliberately, not by default. This velocity-skew approach is a <em>read-only</em>
+      enhancement on top of native scroll: remove it and everything still works perfectly.
+      Keep the maximum skew small (≈8–12°) and always disable it under
+      <code>prefers-reduced-motion</code>; shearing content can be disorienting.
+    </div>
+  </div>
+
+  <p>
+    The same velocity signal can drive more than skew: scale media as you fling past it,
+    intensify a shader's distortion with scroll speed, or tilt 3D objects. Velocity is one
+    of the most expressive inputs you have — and now it's two numbers in a loop.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("skew-demo");
+    if (!mount) return;
+    var items = ["Momentum", "Velocity", "Inertia", "Damping", "Easing", "Flow", "Drift", "Glide"];
+    mount.innerHTML =
+      '<div class="sk-scroller" style="width:min(440px,100%);height:300px;overflow-y:auto;overflow-x:hidden;border-radius:16px;border:1px solid #1b2030;background:#0a0c14;scroll-snap-type:y proximity">' +
+        '<div class="sk-content" style="padding:2rem 1.2rem;transform-origin:center;will-change:transform">' +
+          items.map(function (it, i) {
+            return '<div style="display:flex;align-items:center;gap:1.2rem;padding:1.5rem 1.4rem;margin-bottom:1rem;border-radius:14px;background:linear-gradient(135deg,hsl(' + (220 + i * 18) + ' 55% 16%),#11141f);border:1px solid #1b2030;scroll-snap-align:center">' +
+              '<span style="font-family:ui-monospace,monospace;color:#19e3d6;font-size:.85rem">0' + (i + 1) + "</span>" +
+              '<span style="font-size:1.5rem;font-weight:700;color:#f4f6fb">' + it + "</span></div>";
+          }).join("") +
+        "</div></div>";
+
+    var scroller = mount.querySelector(".sk-scroller");
+    var content = mount.querySelector(".sk-content");
+    if (window.MOTION_REDUCED) return;
+    var last = scroller.scrollTop, current = 0;
+    function loop() {
+      var now = scroller.scrollTop;
+      var vel = now - last; last = now;
+      var target = Math.max(-12, Math.min(12, vel * 0.4));
+      current += (target - current) * 0.1;
+      if (Math.abs(current) < 0.01) current = 0;
+      content.style.transform = "skewY(" + current + "deg) scaleY(" + (1 + Math.abs(current) * 0.004) + ")";
+      requestAnimationFrame(loop);
+    }
+    loop();
+  })();
+</script>

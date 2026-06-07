@@ -1,0 +1,95 @@
+<!--lead: That liquid, glass-like surface that bends toward your cursor on the web's most awarded sites? It's a WebGL displacement shader. We build one: a flowing field that warps toward the pointer with chromatic aberration that ramps up on hover.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    This is the effect that announces "this site has a budget." A full-bleed plane runs
+    a fragment shader; as the pointer moves, the surface bends toward it like a lens, and
+    the color channels split apart at the disturbance. In production it's usually applied
+    to an <em>image</em> (hover a thumbnail, it ripples) — here we distort a procedural
+    aurora so it runs with zero assets, but the technique is identical.
+  </p>
+
+  <h2>Move your cursor across it</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGL · move the cursor</span>
+      <canvas id="distort-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/DistortionPlane.svelte" name="src/lib/DistortionPlane.svelte"-->
+  </div>
+
+  <h2>The three forces in the shader</h2>
+  <ul>
+    <li><strong>Influence falloff.</strong> <code>smoothstep(0.5, 0.0, distanceToMouse)</code>
+      gives a value that's 1 at the cursor and fades to 0 nearby — every distortion is
+      multiplied by this, so the effect is local, not global. Multiply by an eased
+      <code>uHover</code> and it also ramps in/out as the pointer enters and leaves.</li>
+    <li><strong>The lens.</strong> Pulling the sampled UV toward the mouse
+      (<code>uv -= (uv - mouse) * influence</code>) magnifies the surface there, like a
+      drop of water sitting on it. Add a <code>sin()</code> term along the radial
+      direction and you get rings rippling outward.</li>
+    <li><strong>Chromatic aberration.</strong> Sample the field three times — red shifted
+      one way, blue the other, green centered — and recombine. The offset grows with
+      influence, so the channels tear apart right under the cursor. This is the same
+      RGB-split idea from the glitch lesson, now per-pixel and continuous.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Ease the hover, don't snap it.</strong> The single biggest tell of amateur
+      WebGL is distortion that pops on and off. We keep a <code>uHover</code> uniform and
+      each frame nudge it toward its target (<code>+= (target - current) * 0.08</code>) —
+      a one-line lerp that makes the effect breathe in when you arrive and fade out when
+      you leave. For real images, swap the procedural <code>field()</code> for
+      <code>texture2D(uTexture, uv)</code> and pass a displacement/noise map as a second
+      texture to drive the warp.
+    </div>
+  </div>
+
+  <p>
+    This is the foundation of WebGL "image transitions" — hover effects, slideshow
+    crossfades that melt one photo into the next, and full-page warp transitions between
+    routes. Once you can displace UVs by a field and split channels, an enormous slice of
+    award-winning web visuals is within reach.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("distort-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = { uTime: { value: 0 }, uMouse: { value: new THREE.Vector2(0.5, 0.5) }, uHover: { value: 0 } };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader:
+        "uniform float uTime; uniform vec2 uMouse; uniform float uHover; varying vec2 vUv;" +
+        "vec3 field(vec2 uv,float t){ float v=sin(uv.x*6.0+t)+sin(uv.y*7.0-t)+sin((uv.x+uv.y)*5.0+t*1.3); v*=0.33; vec3 vi=vec3(0.486,0.36,1.0); vec3 cy=vec3(0.098,0.89,0.839); vec3 pk=vec3(1.0,0.373,0.62); vec3 c=mix(vi,cy,smoothstep(-1.0,1.0,v)); return mix(c,pk,smoothstep(0.4,1.0,sin(uv.y*3.0+t))*0.6); }" +
+        "void main(){ vec2 uv=vUv; float d=distance(uv,uMouse); float infl=smoothstep(0.5,0.0,d)*uHover; uv-=(uv-uMouse)*infl*0.32; uv+=normalize(uv-uMouse+1e-4)*sin(d*38.0-uTime*5.0)*0.012*infl; float ab=0.014*infl+0.002; vec3 col; col.r=field(uv+vec2(ab,0.0),uTime).r; col.g=field(uv,uTime).g; col.b=field(uv-vec2(ab,0.0),uTime).b; col+=infl*0.12; gl_FragColor=vec4(col,1.0); }"
+    });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+    let targetHover = 0;
+    canvas.addEventListener("pointermove", (e) => {
+      const r = canvas.getBoundingClientRect();
+      uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height);
+    });
+    canvas.addEventListener("pointerenter", () => (targetHover = 1));
+    canvas.addEventListener("pointerleave", () => (targetHover = 0));
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() {
+      uniforms.uTime.value = reduce ? 0.0 : clock.getElapsedTime();
+      uniforms.uHover.value += (targetHover - uniforms.uHover.value) * 0.08;
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>

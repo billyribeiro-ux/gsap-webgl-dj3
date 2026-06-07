@@ -1,0 +1,97 @@
+<!--lead: Thousands of glowing particles flowing between shapes — a sphere dissolving into a knot and back. The trick that makes it run at 60fps: store both shapes on every particle and let the GPU do the morph in the vertex shader.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Particle systems look expensive, and done naively they are — animating 6,000 objects
+    on the CPU will crawl. The professional approach flips it: give every particle
+    <em>two</em> positions (shape A and shape B) as vertex attributes, then mix between
+    them in the <strong>vertex shader</strong> with one uniform. The GPU morphs all 6,000
+    in parallel, essentially for free.
+  </p>
+
+  <h2>A breathing nebula</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · 6,000 GPU particles</span>
+      <canvas id="particles-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/Particles.svelte" name="src/lib/Particles.svelte"-->
+  </div>
+
+  <h2>Why this is fast</h2>
+  <ul>
+    <li><strong>The morph lives in the shader.</strong> Each vertex carries
+      <code>aA</code> (a point on a sphere) and <code>aB</code> (a point on a torus knot).
+      The vertex shader computes <code>mix(aA, aB, uMorph)</code>. Change the single
+      <code>uMorph</code> uniform and every particle moves — no JavaScript loop over
+      points, no buffer rewrites per frame.</li>
+    <li><strong>Even distribution matters.</strong> The sphere uses a Fibonacci spiral so
+      points spread evenly instead of bunching at the poles. Good source distributions are
+      what make particle shapes read clearly.</li>
+    <li><strong>Additive blending = glow.</strong> With
+      <code>blending: AdditiveBlending</code> and <code>depthWrite: false</code>, overlapping
+      particles sum their light, giving that luminous, nebula quality. The fragment shader
+      <code>discard</code>s pixels outside a circle so each point is a soft round dot, not a
+      square.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Any two point sets can morph.</strong> The shapes are just arrays of
+      positions, so <code>aB</code> could be the vertices sampled from a 3D model, or — the
+      showstopper — points sampled from <em>text</em> rendered to a canvas. That's how those
+      "particles assemble into a word, then scatter" hero animations work: sample a word into
+      a position buffer and morph the sphere into it. You now have the entire mechanism.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("particles-canvas");
+  if (canvas) {
+    const COUNT = 6000;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.z = 4.2;
+    const aA = new Float32Array(COUNT * 3), aB = new Float32Array(COUNT * 3), col = new Float32Array(COUNT * 3);
+    const violet = new THREE.Color("#7c5cff"), cyan = new THREE.Color("#19e3d6");
+    for (let i = 0; i < COUNT; i++) {
+      const phi = Math.acos(1 - (2 * (i + 0.5)) / COUNT), theta = Math.PI * (1 + Math.sqrt(5)) * i;
+      const ax = Math.sin(phi) * Math.cos(theta) * 1.4, ay = Math.sin(phi) * Math.sin(theta) * 1.4, az = Math.cos(phi) * 1.4;
+      const t = (i / COUNT) * Math.PI * 2 * 3, r = 0.9 + 0.4 * Math.cos(2 * t);
+      aA.set([ax, ay, az], i * 3);
+      aB.set([r * Math.cos(3 * t), r * Math.sin(3 * t), 0.5 * Math.sin(5 * t)], i * 3);
+      const c = violet.clone().lerp(cyan, (ay + 1.4) / 2.8);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(aA, 3));
+    geo.setAttribute("aA", new THREE.BufferAttribute(aA, 3));
+    geo.setAttribute("aB", new THREE.BufferAttribute(aB, 3));
+    geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    const uniforms = { uMorph: { value: 0 } };
+    const material = new THREE.ShaderMaterial({
+      uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: "attribute vec3 aA; attribute vec3 aB; attribute vec3 aColor; uniform float uMorph; varying vec3 vColor; void main(){ vColor=aColor; vec3 pos=mix(aA,aB,uMorph); vec4 mv=modelViewMatrix*vec4(pos,1.0); gl_PointSize=7.0*(1.0/-mv.z); gl_Position=projectionMatrix*mv; }",
+      fragmentShader: "varying vec3 vColor; void main(){ float d=length(gl_PointCoord-0.5); if(d>0.5) discard; gl_FragColor=vec4(vColor, smoothstep(0.5,0.0,d)); }"
+    });
+    const points = new THREE.Points(geo, material);
+    scene.add(points);
+    function resize() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() {
+      const t = reduce ? 1.2 : clock.getElapsedTime();
+      uniforms.uMorph.value = 0.5 + 0.5 * Math.sin(t * 0.6);
+      points.rotation.y = t * 0.25; points.rotation.z = t * 0.08;
+      renderer.render(scene, camera);
+      if (!reduce) requestAnimationFrame(tick); else renderer.render(scene, camera);
+    }
+    tick();
+  }
+</script>

@@ -1,0 +1,127 @@
+<!--lead: The glitch is the signature of cyberpunk, horror, and high-end tech brands — a signal tearing itself apart. We build a broadcast-grade one: RGB channel split, rolling scanlines, and random datamosh bursts that keep it from ever looking like a loop.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    A convincing glitch isn't one effect — it's a <em>stack</em> of them firing
+    together: the color channels separate (chromatic aberration), horizontal slices
+    shift out of place (datamosh), scanlines roll, and the whole thing jitters. The
+    secret that separates amateur from professional is <strong>randomness</strong>: a
+    real broken signal is irregular, so we drive the intense bursts from a timer, not a
+    fixed loop.
+  </p>
+
+  <h2>Signal lost</h2>
+  <p>
+    Hover the text to force a hard glitch, or just watch — it breaks up at random
+    intervals on its own. Look closely and you'll see red and cyan ghosts tearing in
+    opposite directions while scanlines crawl over the top.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · hover or wait</span>
+      <div id="glitch-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <!--code file="fx/Glitch.svelte" name="src/lib/Glitch.svelte"-->
+  </div>
+
+  <h2>The four layers of a glitch</h2>
+  <ol>
+    <li><strong>RGB channel split.</strong> Render the text three times: the normal
+      white copy, a red copy (<code>::before</code>) and a cyan copy
+      (<code>::after</code>), each offset horizontally. This mimics
+      <em>chromatic aberration</em> — the color fringing of a misaligned sensor. It's
+      the single most recognizable part of the look.</li>
+    <li><strong>Datamosh slices.</strong> Each colored copy is clipped with
+      <code>clip-path: inset(...)</code> to show only a horizontal band, and those bands
+      jump to new positions on each animation step. That's the "torn into ribbons"
+      quality. Using <code>steps()</code> easing makes the jumps hard and digital, not
+      smooth.</li>
+    <li><strong>Scanlines.</strong> A <code>repeating-linear-gradient</code> of thin dark
+      lines over the top, with <code>mix-blend-mode: overlay</code>, evokes a CRT
+      display. Cheap, and it ties everything together.</li>
+    <li><strong>Random bursts.</strong> A timer flips an <code>active</code> class at
+      irregular intervals, swapping the gentle drift for a violent shake-and-smash. This
+      is what makes it read as a <em>failing signal</em> instead of a decoration.</li>
+  </ol>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Why <code>data-text</code> + <code>content: attr(data-text)</code>?</strong>
+      The two colored copies have to contain the exact same text as the original. Rather
+      than duplicate the string three times in your markup (a maintenance trap and an
+      accessibility mess), we store it once in a <code>data-text</code> attribute and let
+      the pseudo-elements pull it in with <code>content: attr(data-text)</code>. The real
+      text stays the only thing a screen reader sees; the ghosts are
+      <code>aria-hidden</code> decoration.
+    </div>
+  </div>
+
+  <h2>Taking it further</h2>
+  <ul>
+    <li><strong>Glitch on images/components</strong> by applying the same RGB-split to a
+      duplicated element with <code>mix-blend-mode: screen</code> and animated
+      <code>clip-path</code> — great for a logo or hero image that "corrupts" on scroll.</li>
+    <li><strong>Trigger on events</strong>: fire the burst on route change, on error
+      states, or scrubbed to scroll with ScrollTrigger for a page that destabilizes as
+      you descend.</li>
+    <li><strong>Go GPU</strong> for the real thing: in the WebGL lessons ahead, a
+      fragment shader can displace pixels with noise and split channels per-pixel — the
+      technique behind those liquid, full-screen glitch transitions on award sites.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Handle with care.</strong> Rapid flashing and high-contrast strobing can
+      trigger photosensitive seizures — keep flicker subtle, never full-screen-white, and
+      collapse the whole effect under <code>prefers-reduced-motion</code> (this component
+      drops to a static color-split). A glitch should unsettle the mood, not endanger the
+      viewer.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("glitch-demo");
+    if (!mount) return;
+    if (!document.getElementById("gl-kf")) {
+      var st = document.createElement("style");
+      st.id = "gl-kf";
+      st.textContent = `
+        .gl{position:relative;display:inline-block;font-family:ui-monospace,monospace;font-size:clamp(1.8rem,8vw,4rem);font-weight:800;letter-spacing:.04em;color:#f4f6fb;text-transform:uppercase;user-select:none}
+        .gl::before,.gl::after{content:attr(data-text);position:absolute;inset:0;clip-path:inset(0 0 0 0)}
+        .gl::before{color:#ff2e63;left:2px;text-shadow:-1px 0 #ff2e63;animation:gl-r 4s steps(40) infinite}
+        .gl::after{color:#19e3d6;left:-2px;text-shadow:1px 0 #19e3d6;animation:gl-c 5s steps(40) infinite reverse}
+        @keyframes gl-r{0%,100%{clip-path:inset(0 0 95% 0);transform:translateX(0)}20%{clip-path:inset(40% 0 40% 0);transform:translateX(-2px)}40%{clip-path:inset(75% 0 8% 0);transform:translateX(2px)}60%{clip-path:inset(15% 0 65% 0);transform:translateX(-1px)}80%{clip-path:inset(60% 0 20% 0);transform:translateX(1px)}}
+        @keyframes gl-c{0%,100%{clip-path:inset(85% 0 0 0);transform:translateX(0)}25%{clip-path:inset(20% 0 55% 0);transform:translateX(2px)}50%{clip-path:inset(55% 0 25% 0);transform:translateX(-2px)}75%{clip-path:inset(5% 0 80% 0);transform:translateX(1px)}}
+        .gl.on::before{animation:gl-sr .25s steps(2) infinite;left:6px}
+        .gl.on::after{animation:gl-sc .25s steps(2) infinite;left:-6px}
+        .gl.on{animation:gl-sh .18s steps(2) infinite}
+        @keyframes gl-sr{0%{clip-path:inset(10% 0 60% 0);transform:translate(-8px,-2px)}50%{clip-path:inset(70% 0 5% 0);transform:translate(6px,2px)}100%{clip-path:inset(40% 0 30% 0);transform:translate(-4px,0)}}
+        @keyframes gl-sc{0%{clip-path:inset(65% 0 12% 0);transform:translate(8px,2px)}50%{clip-path:inset(8% 0 72% 0);transform:translate(-6px,-2px)}100%{clip-path:inset(35% 0 35% 0);transform:translate(4px,0)}}
+        @keyframes gl-sh{0%,100%{transform:translate(0)}33%{transform:translate(-2px,1px) skewX(-3deg)}66%{transform:translate(2px,-1px) skewX(2deg)}}
+        .gl-scan{position:absolute;inset:-4px;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.28) 2px 3px);mix-blend-mode:overlay;opacity:.5}
+        @media (prefers-reduced-motion: reduce){.gl::before,.gl::after,.gl.on,.gl.on::before,.gl.on::after{animation:none}.gl::before{left:1px}.gl::after{left:-1px}}`;
+      document.head.appendChild(st);
+    }
+    var txt = "SYSTEM FAILURE";
+    mount.innerHTML = '<div class="gl" data-text="' + txt + '" role="img" aria-label="' + txt + '">' + txt + '<span class="gl-scan" aria-hidden="true"></span></div>';
+    var el = mount.querySelector(".gl");
+    el.addEventListener("pointerenter", function () { el.classList.add("on"); });
+    el.addEventListener("pointerleave", function () { el.classList.remove("on"); });
+    var to;
+    function schedule() {
+      to = setTimeout(function () {
+        if (!window.MOTION_REDUCED) {
+          el.classList.add("on");
+          setTimeout(function () { el.classList.remove("on"); }, 120 + Math.random() * 200);
+        }
+        schedule();
+      }, 1400 + Math.random() * 2600);
+    }
+    schedule();
+  })();
+</script>
