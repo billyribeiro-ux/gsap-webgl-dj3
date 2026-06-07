@@ -1,0 +1,83 @@
+<!--lead: Straight lines are for spreadsheets. MotionPath flies any element along a curve — banking into the turns — while DrawSVG paints the path into existence. Together they make maps, flight paths and signature animations sing.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Two more once-premium, now-free GSAP plugins. <strong>DrawSVG</strong> animates a
+    stroke from nothing to fully drawn (the polished version of the dash trick from the
+    SVG lesson). <strong>MotionPath</strong> moves any element — a div, an icon, an
+    image — along an arbitrary SVG path, optionally rotating it to follow the curve.
+    Combine them and you get the classic "route drawing itself while a vehicle travels
+    it."
+  </p>
+
+  <h2>Draw the route, fly the path</h2>
+  <p>
+    The line paints itself in, then the craft travels along that exact curve, banking as
+    it turns. It loops so you can study the motion.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · MotionPath + DrawSVG</span>
+      <div id="mp-demo" class="center" style="width:100%;height:100%;padding:1rem"></div>
+    </div>
+    <!--code file="gsap/MotionPath.svelte" name="src/lib/MotionPath.svelte"-->
+  </div>
+
+  <h2>MotionPath options that matter</h2>
+  <ul>
+    <li><strong><code>path</code></strong> — the curve to follow. Point it at an SVG
+      <code>&lt;path&gt;</code> element and the motion traces it precisely; or pass an
+      array of <code>{`{x, y}`}</code> points and GSAP fits a smooth curve through them.</li>
+    <li><strong><code>align</code></strong> — align the moving element to the path's
+      coordinate space so it sits <em>on</em> the line (essential when the element and
+      path live in the same SVG).</li>
+    <li><strong><code>autoRotate</code></strong> — rotate the element to face its
+      direction of travel. Pass <code>true</code>, or a number to add an angular offset
+      (our rocket art points up, so we offset by 90°).</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M222.14,58.87A8,8,0,0,0,216,56H54.68L49.79,29.14A16,16,0,0,0,34.05,16H16a8,8,0,0,0,0,16h18L59.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,152,204a28,28,0,1,0,28-28H83.17a8,8,0,0,1-7.87-6.57L72.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,222.14,58.87Z"/></svg></span>
+    <div class="callout__body">
+      <strong>DrawSVG takes from–to percentages.</strong> Animating
+      <code>drawSVG: '0%'</code> with <code>.from()</code> reveals the whole stroke;
+      <code>drawSVG: '40% 60%'</code> shows only a moving segment — perfect for a
+      "comet tail" tracing the route, or a progress line. Pair a drawing segment with a
+      MotionPath element riding its leading edge and you've built the animated flight
+      maps you see in travel and delivery apps.
+    </div>
+  </div>
+
+  <p>
+    Real uses: onboarding flows that draw a connecting line between steps; a logo whose
+    stroke writes itself on load; data stories where a path traces a journey across a
+    map; playful 404 pages with a character wandering a route. MotionPath + DrawSVG are
+    the difference between motion that goes from A to B and motion that takes you
+    somewhere.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("mp-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.MotionPathPlugin === "undefined" || typeof window.DrawSVGPlugin === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      gsap.registerPlugin(window.MotionPathPlugin, window.DrawSVGPlugin);
+      mount.innerHTML =
+        '<svg viewBox="0 0 400 240" style="width:min(460px,94%);height:auto;overflow:visible" aria-hidden="true">' +
+          '<path class="mp-route" d="M24,200 C90,40 190,40 210,130 S350,250 376,56" fill="none" stroke="#7c5cff" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8"/>' +
+          '<g class="mp-rocket"><path d="M0,-12 L7,8 L0,3 L-7,8 Z" fill="#19e3d6"/></g>' +
+        "</svg>";
+      var path = mount.querySelector(".mp-route");
+      var rocket = mount.querySelector(".mp-rocket");
+      if (window.MOTION_REDUCED) { gsap.set(rocket, { motionPath: { path: path, align: path, alignOrigin: [0.5, 0.5], autoRotate: 90, end: 1 } }); return; }
+      var tl = gsap.timeline({ repeat: -1, repeatDelay: 0.8 });
+      tl.from(path, { drawSVG: "0%", duration: 1.3, ease: "power1.inOut" })
+        .to(rocket, { duration: 2.2, ease: "power1.inOut", motionPath: { path: path, align: path, alignOrigin: [0.5, 0.5], autoRotate: 90 } }, "-=0.5");
+    }
+    build();
+  })();
+</script>

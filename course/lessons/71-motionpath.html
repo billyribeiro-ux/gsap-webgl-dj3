@@ -4,10 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MotionPath &amp; DrawSVG — MOTION</title>
-  <meta name="description" content="MotionPath &amp; DrawSVG" />
+  <meta name="description" content="Straight lines are for spreadsheets. MotionPath flies any element along a curve — banking into the turns — while DrawSVG paints the path into existence. Together they make maps, flight paths and signature animations sing." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/MotionPathPlugin.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/DrawSVGPlugin.min.js" defer></script>
 </head>
 <body data-slug="71-motionpath">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +30,156 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M7 · GSAP SVG &amp; Text</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">MotionPath & DrawSVG</h1>
-        
+        <p class="hero__lead" data-reveal="120">Straight lines are for spreadsheets. MotionPath flies any element along a curve — banking into the turns — while DrawSVG paints the path into existence. Together they make maps, flight paths and signature animations sing.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    Two more once-premium, now-free GSAP plugins. <strong>DrawSVG</strong> animates a
+    stroke from nothing to fully drawn (the polished version of the dash trick from the
+    SVG lesson). <strong>MotionPath</strong> moves any element — a div, an icon, an
+    image — along an arbitrary SVG path, optionally rotating it to follow the curve.
+    Combine them and you get the classic "route drawing itself while a vehicle travels
+    it."
+  </p>
+
+  <h2>Draw the route, fly the path</h2>
+  <p>
+    The line paints itself in, then the craft travels along that exact curve, banking as
+    it turns. It loops so you can study the motion.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · MotionPath + DrawSVG</span>
+      <div id="mp-demo" class="center" style="width:100%;height:100%;padding:1rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/MotionPath.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/MotionPath.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>MotionPath &amp; DrawSVG builds directly on <em>GSAP SVG &amp; Text</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
+  import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
+  import type { Attachment } from 'svelte/attachments';
+
+  gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
+
+  // Two free SVG superpowers: DrawSVG animates a stroke into existence, and
+  // MotionPath flies any element along an SVG path (with auto-rotation, so a
+  // rocket actually banks into its turns).
+  const journey: Attachment&lt;SVGSVGElement&gt; = (node) =&gt; {
+    const q = gsap.utils.selector(node);
+    const ctx = gsap.context(() =&gt; {
+      const path = q('.route')[0] as SVGPathElement;
+      const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.8 });
+
+      // 1. Draw the route in.
+      tl.from(path, { drawSVG: '0%', duration: 1.3, ease: 'power1.inOut' })
+        // 2. Fly the rocket along that exact path, rotating to follow it.
+        .to(
+          q('.rocket'),
+          {
+            duration: 2.2,
+            ease: 'power1.inOut',
+            motionPath: {
+              path,
+              align: path,
+              alignOrigin: [0.5, 0.5],
+              autoRotate: 90 // the rocket art points up, so offset 90°
+            }
+          },
+          '-=0.5'
+        );
+    }, node);
+
+    return () =&gt; ctx.revert();
+  };
+&lt;/script&gt;
+
+&lt;svg viewBox="0 0 400 240" class="map" {@attach journey} aria-hidden="true"&gt;
+  &lt;path
+    class="route"
+    d="M24,200 C90,40 190,40 210,130 S350,250 376,56"
+    fill="none"
+    stroke="#7c5cff"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-dasharray="2 8"
+  /&gt;
+  &lt;g class="rocket"&gt;
+    &lt;path d="M0,-12 L7,8 L0,3 L-7,8 Z" fill="#19e3d6" /&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;
+
+&lt;style&gt;
+  .map { width: min(460px, 94%); height: auto; overflow: visible; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>MotionPath options that matter</h2>
+  <ul>
+    <li><strong><code>path</code></strong> — the curve to follow. Point it at an SVG
+      <code>&lt;path&gt;</code> element and the motion traces it precisely; or pass an
+      array of <code>{`{x, y}`}</code> points and GSAP fits a smooth curve through them.</li>
+    <li><strong><code>align</code></strong> — align the moving element to the path's
+      coordinate space so it sits <em>on</em> the line (essential when the element and
+      path live in the same SVG).</li>
+    <li><strong><code>autoRotate</code></strong> — rotate the element to face its
+      direction of travel. Pass <code>true</code>, or a number to add an angular offset
+      (our rocket art points up, so we offset by 90°).</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M222.14,58.87A8,8,0,0,0,216,56H54.68L49.79,29.14A16,16,0,0,0,34.05,16H16a8,8,0,0,0,0,16h18L59.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,152,204a28,28,0,1,0,28-28H83.17a8,8,0,0,1-7.87-6.57L72.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,222.14,58.87Z"/></svg></span>
+    <div class="callout__body">
+      <strong>DrawSVG takes from–to percentages.</strong> Animating
+      <code>drawSVG: '0%'</code> with <code>.from()</code> reveals the whole stroke;
+      <code>drawSVG: '40% 60%'</code> shows only a moving segment — perfect for a
+      "comet tail" tracing the route, or a progress line. Pair a drawing segment with a
+      MotionPath element riding its leading edge and you've built the animated flight
+      maps you see in travel and delivery apps.
+    </div>
+  </div>
+
+  <p>
+    Real uses: onboarding flows that draw a connecting line between steps; a logo whose
+    stroke writes itself on load; data stories where a path traces a journey across a
+    map; playful 404 pages with a character wandering a route. MotionPath + DrawSVG are
+    the difference between motion that goes from A to B and motion that takes you
+    somewhere.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("mp-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.MotionPathPlugin === "undefined" || typeof window.DrawSVGPlugin === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      gsap.registerPlugin(window.MotionPathPlugin, window.DrawSVGPlugin);
+      mount.innerHTML =
+        '<svg viewBox="0 0 400 240" style="width:min(460px,94%);height:auto;overflow:visible" aria-hidden="true">' +
+          '<path class="mp-route" d="M24,200 C90,40 190,40 210,130 S350,250 376,56" fill="none" stroke="#7c5cff" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8"/>' +
+          '<g class="mp-rocket"><path d="M0,-12 L7,8 L0,3 L-7,8 Z" fill="#19e3d6"/></g>' +
+        "</svg>";
+      var path = mount.querySelector(".mp-route");
+      var rocket = mount.querySelector(".mp-rocket");
+      if (window.MOTION_REDUCED) { gsap.set(rocket, { motionPath: { path: path, align: path, alignOrigin: [0.5, 0.5], autoRotate: 90, end: 1 } }); return; }
+      var tl = gsap.timeline({ repeat: -1, repeatDelay: 0.8 });
+      tl.from(path, { drawSVG: "0%", duration: 1.3, ease: "power1.inOut" })
+        .to(rocket, { duration: 2.2, ease: "power1.inOut", motionPath: { path: path, align: path, alignOrigin: [0.5, 0.5], autoRotate: 90 } }, "-=0.5");
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

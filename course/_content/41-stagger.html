@@ -1,0 +1,89 @@
+<!--lead: Stagger is the cinematic multiplier. The difference between ten things appearing at once and ten things rippling into view is one property — and it's the secret behind almost every "how did they coordinate that?" reveal.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    You met basic stagger in the first GSAP lesson. Now we unlock its real power: GSAP
+    can stagger across a <strong>grid</strong>, ripple from any <strong>origin</strong>,
+    and even compute each element's delay from a custom function. This is how teams
+    animate a wall of 48 tiles into a single, organic wave.
+  </p>
+
+  <h2>A ripple from the center</h2>
+  <p>
+    Forty-eight cells, one <code>gsap.from</code>. The <code>stagger</code> object tells
+    GSAP the grid shape and to radiate outward from the middle. Hit replay and watch the
+    wave spread.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · grid stagger</span>
+      <div id="stagger-demo" class="center" style="width:100%;height:100%"></div>
+      <button class="stage__replay" type="button" data-replay="stagger" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <!--code file="gsap/StaggerGrid.svelte" name="src/lib/StaggerGrid.svelte"-->
+  </div>
+
+  <h2>The stagger object, decoded</h2>
+  <ul>
+    <li><strong><code>each: 0.04</code></strong> — seconds between consecutive elements.
+      (Use <code>amount</code> instead to spread the <em>total</em> stagger across a
+      fixed time, regardless of count — handy when the number of items varies.)</li>
+    <li><strong><code>grid: [rows, cols]</code></strong> — tells GSAP the 2D layout so it
+      can measure distances between cells. Use <code>'auto'</code> to let GSAP infer it
+      from the DOM.</li>
+    <li><strong><code>from</code></strong> — the origin of the ripple:
+      <code>'center'</code>, <code>'edges'</code>, <code>'start'</code>,
+      <code>'end'</code>, <code>'random'</code>, or an index/<code>[row, col]</code>.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Stagger is a function in disguise.</strong> You can pass
+      <code>stagger</code> a function <code>(index, target, list) =&gt; delay</code> for
+      total control — drive delays from data, distance to the pointer, or a noise field.
+      And every stagger accepts its own <code>ease</code> (via
+      <code>{`{ each, ease: 'power2.in' }`}</code>) that shapes how the <em>delays
+      themselves</em> are distributed — accelerating or decelerating the wave. This is
+      the deep end most developers never find.
+    </div>
+  </div>
+
+  <h2>Where you'll use it</h2>
+  <p>
+    Card grids and galleries revealing on scroll; navigation menus opening in sequence;
+    letters of a headline (you saw this with SplitText); list items entering; a bar chart
+    growing bar-by-bar. Anywhere there are <em>many of a thing</em>, stagger turns a flat
+    appearance into choreography. Restraint still matters — a 0.03–0.06s each is usually
+    plenty; too large and it feels sluggish.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("stagger-demo");
+    if (!mount) return;
+    var COLS = 8, ROWS = 6;
+    function build() {
+      if (typeof window.gsap === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      var grid = document.createElement("div");
+      grid.style.cssText = "display:grid;grid-template-columns:repeat(" + COLS + ",1fr);gap:8px;width:min(420px,92%)";
+      grid.innerHTML = Array.from({ length: COLS * ROWS }).map(function () {
+        return '<span style="aspect-ratio:1;border-radius:6px;background:linear-gradient(135deg,#7c5cff,#19e3d6)"></span>';
+      }).join("");
+      mount.innerHTML = ""; mount.appendChild(grid);
+      function play() {
+        if (window.MOTION_REDUCED) return;
+        gsap.from(grid.children, { scale: 0, opacity: 0, transformOrigin: "center", ease: "back.out(1.7)", duration: 0.6, stagger: { each: 0.04, grid: [ROWS, COLS], from: "center" } });
+      }
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.stagger = play;
+      play();
+    }
+    build();
+  })();
+</script>

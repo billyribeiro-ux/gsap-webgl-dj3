@@ -4,10 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Force-Directed Motion — MOTION</title>
-  <meta name="description" content="Force-Directed Motion" />
+  <meta name="description" content="Some layouts can't be designed by hand — they have to be *simulated*. D3's force engine treats your data like charged particles on springs and lets physics find the arrangement. The result is organic, alive, and interactive." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/d3@7/dist/d3.min.js" defer></script>
 </head>
 <body data-slug="81-d3-force">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +28,197 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M8 · D3 Motion</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Force-Directed Motion</h1>
-        
+        <p class="hero__lead" data-reveal="120">Some layouts can't be designed by hand — they have to be *simulated*. D3's force engine treats your data like charged particles on springs and lets physics find the arrangement. The result is organic, alive, and interactive.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    A <strong>force simulation</strong> is animation by physics rather than by keyframe.
+    You define forces — repulsion between nodes, springs along links, a pull toward the
+    center — and D3 iteratively nudges everything until it settles into a balanced
+    layout. Network graphs, mind maps, bubble charts and clustering visuals all come
+    from this one engine.
+  </p>
+
+  <h2>A living network — drag it</h2>
+  <p>
+    The nodes repel each other, the links pull them together, and the whole thing
+    breathes into balance. Grab any node and drag — the network reorganizes around your
+    hand in real time, then relaxes when you let go.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · drag the nodes</span>
+      <div id="force-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/D3Force.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/D3Force.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>Force-Directed Motion builds directly on <em>D3 Motion</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as d3 from 'd3';
+
+  // A force simulation treats nodes like charged particles connected by springs.
+  // d3 runs the physics; on every "tick" we read each node's computed x/y and
+  // update the SVG. Repulsion spreads nodes out, links pull them together, and a
+  // centering force keeps the whole graph on screen.
+  type Node = d3.SimulationNodeDatum &amp; { id: number };
+  type Link = d3.SimulationLinkDatum&lt;Node&gt;;
+
+  const width = 440;
+  const height = 280;
+
+  const nodes: Node[] = Array.from({ length: 14 }, (_, id) =&gt; ({ id }));
+  const links: Link[] = nodes
+    .slice(1)
+    .map((n, i) =&gt; ({ source: n.id, target: Math.floor(Math.random() * (i + 1)) }));
+
+  let svgEl: SVGSVGElement | undefined = $state();
+
+  $effect(() =&gt; {
+    if (!svgEl) return;
+    const svg = d3.select(svgEl);
+
+    const link = svg
+      .selectAll&lt;SVGLineElement, Link&gt;('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', '#2a3142')
+      .attr('stroke-width', 1.5);
+
+    const node = svg
+      .selectAll&lt;SVGCircleElement, Node&gt;('circle')
+      .data(nodes)
+      .join('circle')
+      .attr('r', 11)
+      .attr('fill', '#7c5cff')
+      .attr('stroke', '#19e3d6')
+      .attr('stroke-width', 1.5)
+      .style('cursor', 'grab');
+
+    const sim = d3
+      .forceSimulation(nodes)
+      .force('charge', d3.forceManyBody().strength(-200))
+      .force('link', d3.forceLink&lt;Node, Link&gt;(links).id((d) =&gt; d.id).distance(54))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collide', d3.forceCollide(16))
+      .on('tick', () =&gt; {
+        link
+          .attr('x1', (d) =&gt; (d.source as Node).x ?? 0)
+          .attr('y1', (d) =&gt; (d.source as Node).y ?? 0)
+          .attr('x2', (d) =&gt; (d.target as Node).x ?? 0)
+          .attr('y2', (d) =&gt; (d.target as Node).y ?? 0);
+        node.attr('cx', (d) =&gt; d.x ?? 0).attr('cy', (d) =&gt; d.y ?? 0);
+      });
+
+    // Drag: pin a node under the pointer (fx/fy), release on end.
+    node.call(
+      d3
+        .drag&lt;SVGCircleElement, Node&gt;()
+        .on('start', (event, d) =&gt; {
+          if (!event.active) sim.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on('drag', (event, d) =&gt; {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on('end', (event, d) =&gt; {
+          if (!event.active) sim.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        })
+    );
+
+    return () =&gt; sim.stop(); // halt the physics loop on unmount
+  });
+&lt;/script&gt;
+
+&lt;svg bind:this={svgEl} viewBox="0 0 {width} {height}" class="graph" role="img" aria-label="Force-directed graph"&gt;&lt;/svg&gt;
+
+&lt;style&gt;
+  .graph { width: min(460px, 94%); height: auto; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The forces, and the tick</h2>
+  <ul>
+    <li><strong><code>forceManyBody()</code></strong> — every node pushes (negative
+      strength) or pulls (positive) every other. Negative repulsion spreads the graph
+      out so it's readable.</li>
+    <li><strong><code>forceLink()</code></strong> — turns your links into springs with a
+      target <code>distance</code>, holding connected nodes a comfortable gap apart.</li>
+    <li><strong><code>forceCenter()</code></strong> — a gentle gravity toward the middle
+      so the graph doesn't drift off-screen. Add <code>forceCollide()</code> to stop
+      nodes overlapping.</li>
+    <li><strong>The <code>'tick'</code> handler</strong> — runs every simulation step.
+      This is the animation loop: read each node's freshly computed <code>x/y</code> and
+      write it to the SVG. D3 owns the physics; you own the rendering.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Dragging = pinning.</strong> Setting a node's <code>fx</code>/<code>fy</code>
+      (fixed position) locks it under the pointer; the simulation flows around it. On
+      release, set them back to <code>null</code> and the node rejoins the physics. And
+      always <code>sim.stop()</code> on cleanup — a force simulation is a perpetual
+      animation loop, so an orphaned one quietly burns CPU forever. Our <code>$effect</code>
+      returns exactly that teardown.
+    </div>
+  </div>
+
+  <p>
+    This is also the bridge between D3 and Svelte at its finest: Svelte owns the
+    component lifecycle, D3 owns the physics and SVG. Feed the simulation data from
+    <code>$state</code> and it re-balances reactively — a live org chart, a dependency
+    graph, a social network that grows as data arrives.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("force-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.d3 === "undefined") { setTimeout(build, 120); return; }
+      var d3 = window.d3;
+      var width = 440, height = 260;
+      var nodes = Array.from({ length: 14 }, function (_, id) { return { id: id }; });
+      var links = nodes.slice(1).map(function (n, i) { return { source: n.id, target: Math.floor(Math.random() * (i + 1)) }; });
+      var svg = d3.create("svg").attr("viewBox", "0 0 " + width + " " + height).attr("role", "img").attr("aria-label", "Force graph");
+      svg.node().style.cssText = "width:min(460px,94%);height:auto";
+      mount.innerHTML = ""; mount.appendChild(svg.node());
+
+      var link = svg.selectAll("line").data(links).join("line").attr("stroke", "#2a3142").attr("stroke-width", 1.5);
+      var node = svg.selectAll("circle").data(nodes).join("circle").attr("r", 11).attr("fill", "#7c5cff").attr("stroke", "#19e3d6").attr("stroke-width", 1.5).style("cursor", "grab");
+
+      var sim = d3.forceSimulation(nodes)
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("link", d3.forceLink(links).id(function (d) { return d.id; }).distance(54))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide(16))
+        .on("tick", function () {
+          link.attr("x1", function (d) { return d.source.x; }).attr("y1", function (d) { return d.source.y; })
+            .attr("x2", function (d) { return d.target.x; }).attr("y2", function (d) { return d.target.y; });
+          node.attr("cx", function (d) { return d.x; }).attr("cy", function (d) { return d.y; });
+        });
+      if (window.MOTION_REDUCED) { sim.stop(); for (var k = 0; k < 200; k++) sim.tick(); sim.on("tick")(); }
+      node.call(d3.drag()
+        .on("start", function (e, d) { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag", function (e, d) { d.fx = e.x; d.fy = e.y; })
+        .on("end", function (e, d) { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

@@ -32,6 +32,8 @@ const V = {
   scrolltrigger: "https://unpkg.com/gsap@3.15.0/dist/ScrollTrigger.min.js",
   splittext: "https://unpkg.com/gsap@3.15.0/dist/SplitText.min.js",
   motionpath: "https://unpkg.com/gsap@3.15.0/dist/MotionPathPlugin.min.js",
+  morphsvg: "https://unpkg.com/gsap@3.15.0/dist/MorphSVGPlugin.min.js",
+  drawsvg: "https://unpkg.com/gsap@3.15.0/dist/DrawSVGPlugin.min.js",
   d3: "https://unpkg.com/d3@7/dist/d3.min.js"
 };
 const THREE_VERSION = "0.184.0";
@@ -39,16 +41,30 @@ const THREE_VERSION = "0.184.0";
 // Per-slug library requirements for the live demos.
 const LIBS = {
   "10-css-transitions": [],
+  "11-keyframes-transforms": [],
+  "12-scroll-driven": [],
   "20-svg-anatomy": [],
+  "22-svg-morphing": ["gsap", "morphsvg"],
   "30-svelte-transitions": [],
+  "31-tween-spring": [],
   "40-gsap-first-tween": ["gsap"],
+  "41-stagger": ["gsap"],
+  "42-gsap-utils": ["gsap"],
   "50-timelines": ["gsap"],
+  "51-nested-timelines": ["gsap"],
   "60-scrolltrigger": ["gsap", "scrolltrigger"],
+  "61-horizontal-scroll": ["gsap", "scrolltrigger"],
   "70-splittext": ["gsap", "splittext"],
+  "71-motionpath": ["gsap", "motionpath", "drawsvg"],
   "80-d3-transitions": ["d3"],
+  "81-d3-force": ["d3"],
   "90-threejs-first-scene": ["three"],
+  "91-shaders": ["three"],
   "a0-threlte-intro": ["three"],
+  "a1-threlte-scroll": ["three"],
   "b0-netflix-hero": ["gsap", "splittext", "scrolltrigger"],
+  "b1-apple-reveal": ["gsap", "scrolltrigger"],
+  "b2-title-sequence": ["gsap", "splittext"],
   "00-welcome": [],
   "01-principles-of-motion": []
 };

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Easing &amp; Timing — The Soul of Motion — MOTION</title>
-  <meta name="description" content="Easing &amp; Timing — The Soul of Motion" />
+  <meta name="description" content="Easing is the accent of motion — the single choice that makes the difference between "a thing moved" and "a thing arrived." Let's train your eye to read curves, and your hand to pick them." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
@@ -27,28 +27,162 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M0 · Foundations of Motion</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Easing & Timing — The Soul of Motion</h1>
-        
+        <p class="hero__lead" data-reveal="120">Easing is the accent of motion — the single choice that makes the difference between "a thing moved" and "a thing arrived." Let's train your eye to read curves, and your hand to pick them.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    An easing curve answers one question: <em>how does progress map to time?</em> A
+    linear ease covers equal distance every frame — mechanical, lifeless. A good ease
+    front-loads or back-loads the motion so it accelerates and settles like a physical
+    object. You met this in the principles lesson; now we go deep enough that you can
+    pick the right curve by instinct.
+  </p>
+
+  <h2>The gallery — read the feel</h2>
+  <p>
+    Same distance, same duration, six different curves. Watch them together until you
+    can <em>feel</em> the difference with your eyes closed. That intuition is worth
+    more than memorizing any number.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · compare the curves</span>
+      <div id="ease-gallery" class="center" style="width:100%;height:100%;padding:1rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/EasingGallery.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/EasingGallery.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>Easing &amp; Timing — The Soul of Motion builds directly on <em>Foundations of Motion</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  // A side-by-side easing gallery. Every tile runs the SAME distance over the
+  // SAME duration, looping forever — so the only variable is the easing curve.
+  // Watching them together is the fastest way to build an intuition for "feel".
+  const eases: { name: string; css: string }[] = [
+    { name: 'linear', css: 'linear' },
+    { name: 'ease-out', css: 'cubic-bezier(0, 0, 0.2, 1)' },
+    { name: 'expo.out', css: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+    { name: 'back.out', css: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+    { name: 'in-out', css: 'cubic-bezier(0.83, 0, 0.17, 1)' },
+    { name: 'anticipate', css: 'cubic-bezier(0.68, -0.55, 0.27, 1.55)' }
+  ];
+&lt;/script&gt;
+
+&lt;div class="gallery"&gt;
+  {#each eases as ease (ease.name)}
+    &lt;div class="tile"&gt;
+      &lt;span class="name"&gt;{ease.name}&lt;/span&gt;
+      &lt;div class="track"&gt;
+        &lt;span class="dot" style="animation-timing-function: {ease.css}"&gt;&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  {/each}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .gallery { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: min(560px, 94%); }
+  .tile { padding: 0.9rem 1rem; border-radius: 12px; background: #11141f; border: 1px solid #1b2030; }
+  .name { font: 600 0.74rem/1 ui-monospace, monospace; color: #8b93a7; letter-spacing: 0.06em; }
+  .track { margin-top: 0.7rem; height: 14px; display: flex; align-items: center; }
+  .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7c5cff, #19e3d6);
+    /* Same keyframes + duration everywhere; only the timing-function differs. */
+    animation: slide 2.4s infinite alternate;
+  }
+  @keyframes slide {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(100% + 200px)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+  }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>Reading a cubic-bezier</h2>
+  <p>
+    <code>cubic-bezier(x1, y1, x2, y2)</code> defines two control handles pulling a
+    curve between (0,0) and (1,1). The x-axis is time, the y-axis is progress.
+  </p>
+  <ul>
+    <li><strong>Handle pulled right and up early</strong> (like <code>0.16, 1</code>) →
+      the curve shoots up fast then flattens → <em>fast start, soft landing</em>
+      (expo-out). The premium default for things arriving.</li>
+    <li><strong>y greater than 1</strong> → the curve overshoots past the target and
+      comes back → a <em>spring / overshoot</em>. Energy, playfulness.</li>
+    <li><strong>y below 0 at the start</strong> → it dips backward before going forward
+      → <em>anticipation</em>, a wind-up before the move.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Direction picks the curve.</strong> Entering elements use an
+      <em>out</em> ease (decelerate into place). Leaving elements use an <em>in</em>
+      ease (accelerate away). Movement between two on-screen states uses
+      <em>in-out</em>. Get just this right and your work immediately reads as
+      considered.
+    </div>
+  </div>
+
+  <h2>Timing: the other half</h2>
+  <p>
+    Curve is <em>how</em>; duration is <em>how long</em>. A useful scale: micro-feedback
+    (hovers, taps) 100–200ms; standard transitions 200–400ms; entrances and larger
+    moves 400–600ms; grand, hero-scale reveals 600–1000ms. Two rules keep you honest:
+    bigger or farther-travelling things get a touch longer, and <strong>when unsure,
+    go faster</strong> — users read speed as quality. GSAP, Svelte's <code>Tween</code>
+    and CSS all take these same easing + duration ideas; the vocabulary transfers
+    everywhere.
+  </p>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("ease-gallery");
+    if (!mount) return;
+    if (!document.getElementById("eg-kf")) {
+      const st = document.createElement("style");
+      st.id = "eg-kf";
+      st.textContent = `
+        .eg{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));width:min(560px,94%)}
+        .eg-tile{padding:.9rem 1rem;border-radius:12px;background:#11141f;border:1px solid #1b2030}
+        .eg-name{font:600 .74rem/1 ui-monospace,monospace;color:#8b93a7;letter-spacing:.06em}
+        .eg-track{margin-top:.7rem;height:14px;display:flex;align-items:center}
+        .eg-dot{width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#19e3d6);animation:eg-slide 2.4s infinite alternate}
+        @keyframes eg-slide{from{transform:translateX(0)}to{transform:translateX(calc(100% + 160px))}}
+        @media (prefers-reduced-motion: reduce){.eg-dot{animation:none}}`;
+      document.head.appendChild(st);
+    }
+    const eases = [
+      ["linear", "linear"],
+      ["ease-out", "cubic-bezier(0,0,.2,1)"],
+      ["expo.out", "cubic-bezier(.16,1,.3,1)"],
+      ["back.out", "cubic-bezier(.34,1.56,.64,1)"],
+      ["in-out", "cubic-bezier(.83,0,.17,1)"],
+      ["anticipate", "cubic-bezier(.68,-.55,.27,1.55)"]
+    ];
+    mount.innerHTML =
+      '<div class="eg">' +
+      eases
+        .map(
+          (e) =>
+            '<div class="eg-tile"><span class="eg-name">' + e[0] +
+            '</span><div class="eg-track"><span class="eg-dot" style="animation-timing-function:' + e[1] + '"></span></div></div>'
+        )
+        .join("") +
+      "</div>";
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

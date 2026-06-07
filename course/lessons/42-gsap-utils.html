@@ -4,10 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>gsap.utils — The Secret Toolbox — MOTION</title>
-  <meta name="description" content="gsap.utils — The Secret Toolbox" />
+  <meta name="description" content="Hidden inside GSAP is a toolbox of tiny, perfect utility functions — mapRange, clamp, random, snap, wrap, interpolate. They're useful in almost any code you write, animation or not. Senior devs reach for them daily." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
 </head>
 <body data-slug="42-gsap-utils">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +28,176 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M4 · GSAP Core</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">gsap.utils — The Secret Toolbox</h1>
-        
+        <p class="hero__lead" data-reveal="120">Hidden inside GSAP is a toolbox of tiny, perfect utility functions — mapRange, clamp, random, snap, wrap, interpolate. They're useful in almost any code you write, animation or not. Senior devs reach for them daily.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    <code>gsap.utils</code> is the most underrated part of GSAP. These are pure helper
+    functions — no animation required — that solve the small numeric problems that come
+    up constantly when you build interactive things: remapping ranges, keeping values in
+    bounds, generating controlled randomness, snapping to steps. Learn these six and
+    your code gets shorter and clearer everywhere.
+  </p>
+
+  <h2>Map a pointer to anything</h2>
+  <p>
+    Drag your pointer across the pad. Its horizontal position is remapped — once to a
+    rotation, once to a hue — with <code>gsap.utils.mapRange</code>. Then
+    <strong>Randomise</strong> picks a snapped angle and a hue from a palette. This tiny
+    interaction uses four utils.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · drag across</span>
+      <div id="utils-demo" class="center stack" style="width:100%;height:100%;gap:0;padding:1.25rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/UtilsDemo.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/UtilsDemo.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>gsap.utils — The Secret Toolbox builds directly on <em>GSAP Core</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+
+  // gsap.utils is a box of pure helper functions you'll use constantly — even in
+  // code that has nothing else to do with animation. Here we map a pointer's
+  // position to rotation and hue, then snap/randomise on demand.
+  let rotation = $state(0);
+  let hue = $state(265);
+
+  let pad: HTMLDivElement | undefined = $state();
+
+  // mapRange returns a *reusable function* that remaps one numeric range to another.
+  const toRotation = gsap.utils.mapRange(0, 1, -28, 28);
+  const toHue = gsap.utils.mapRange(0, 1, 200, 340);
+
+  function move(e: PointerEvent): void {
+    if (!pad) return;
+    const r = pad.getBoundingClientRect();
+    // clamp keeps the normalised value safely inside 0..1.
+    const t = gsap.utils.clamp(0, 1, (e.clientX - r.left) / r.width);
+    rotation = toRotation(t);
+    hue = toHue(t);
+  }
+
+  function randomise(): void {
+    // random(min, max) → a number; random([..]) → a pick; snap rounds to a step.
+    rotation = gsap.utils.snap(5, gsap.utils.random(-28, 28));
+    hue = gsap.utils.random([200, 240, 265, 300, 330]);
+  }
+&lt;/script&gt;
+
+&lt;div class="pad" bind:this={pad} onpointermove={move} role="application" aria-label="Drag to remap"&gt;
+  &lt;div
+    class="card"
+    style="transform: rotate({rotation}deg); background: linear-gradient(150deg, hsl({hue} 80% 62%), hsl({hue + 40} 70% 40%))"
+  &gt;
+    &lt;span&gt;{Math.round(rotation)}°&lt;/span&gt;
+    &lt;small&gt;hue {Math.round(hue)}&lt;/small&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;button class="rnd" onclick={randomise}&gt;Randomise&lt;/button&gt;
+
+&lt;style&gt;
+  .pad { width: min(420px, 92%); height: 220px; display: grid; place-items: center; border-radius: 16px; background: #11141f; border: 1px solid #1b2030; cursor: ew-resize; touch-action: none; }
+  .card {
+    width: 130px;
+    height: 160px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    color: #05060a;
+    font-weight: 800;
+    box-shadow: 0 20px 50px -20px #000;
+    transition: transform 0.2s ease;
+  }
+  .card span { font-size: 1.6rem; }
+  .card small { font-weight: 600; opacity: 0.75; }
+  .rnd { margin-top: 1rem; padding: 0.55rem 1.3rem; border-radius: 999px; border: 1px solid #2a3142; background: #11141f; color: #d6dbe6; cursor: pointer; }
+  .rnd:hover { border-color: #19e3d6; color: #19e3d6; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The essential six</h2>
+  <ul>
+    <li><strong><code>mapRange(inMin, inMax, outMin, outMax)</code></strong> — the star.
+      Returns a function that linearly remaps a value from one range to another. Pointer
+      pixels → rotation, scroll progress → opacity, data → bar height. Everywhere.</li>
+    <li><strong><code>clamp(min, max, value)</code></strong> — keep a number inside
+      bounds. No more <code>Math.max(0, Math.min(1, x))</code> noise.</li>
+    <li><strong><code>random(min, max, snap?)</code></strong> or
+      <code>random([a, b, c])</code> — controlled randomness: a number in a range
+      (optionally snapped), or a pick from a list. Perfect for organic, non-repeating
+      motion.</li>
+    <li><strong><code>snap(increment, value)</code></strong> — round to the nearest step
+      (or to the nearest value in an array). Great for grids, ticks and magnetic sliders.</li>
+    <li><strong><code>wrap(min, max, value)</code></strong> — wrap a value around a range,
+      like a carousel index that loops from the last item back to the first.</li>
+    <li><strong><code>interpolate(a, b)</code></strong> — returns a function that blends
+      between two values — numbers, colors, even objects — by a 0–1 progress.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>mapRange returns a function — reuse it.</strong> Call
+      <code>const toRotation = gsap.utils.mapRange(0, 1, -28, 28)</code> once and call
+      <code>toRotation(t)</code> as often as you like. You can also
+      <code>gsap.utils.pipe(clamp, toRotation)</code> to compose helpers into a single
+      transform. These are framework-agnostic plain functions — import GSAP and you can
+      use them in your Svelte logic, your stores, anywhere.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("utils-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.gsap === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      mount.style.flexDirection = "column";
+      var pad = document.createElement("div");
+      pad.setAttribute("role", "application"); pad.setAttribute("aria-label", "Drag to remap");
+      pad.style.cssText = "width:min(420px,92%);height:190px;display:grid;place-items:center;border-radius:16px;background:#11141f;border:1px solid #1b2030;cursor:ew-resize;touch-action:none";
+      var card = document.createElement("div");
+      card.style.cssText = "width:120px;height:150px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;color:#05060a;font-weight:800;box-shadow:0 20px 50px -20px #000;transition:transform .2s ease";
+      pad.appendChild(card);
+      var btn = document.createElement("button");
+      btn.textContent = "Randomise";
+      btn.style.cssText = "margin-top:1rem;padding:.55rem 1.3rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#d6dbe6;cursor:pointer";
+      mount.append(pad, btn);
+      var toRot = gsap.utils.mapRange(0, 1, -28, 28);
+      var toHue = gsap.utils.mapRange(0, 1, 200, 340);
+      function apply(rot, hue) {
+        card.style.transform = "rotate(" + rot + "deg)";
+        card.style.background = "linear-gradient(150deg,hsl(" + hue + " 80% 62%),hsl(" + (hue + 40) + " 70% 40%))";
+        card.innerHTML = "<span style='font-size:1.6rem'>" + Math.round(rot) + "°</span><small style='font-weight:600;opacity:.75'>hue " + Math.round(hue) + "</small>";
+      }
+      pad.addEventListener("pointermove", function (e) {
+        var r = pad.getBoundingClientRect();
+        var t = gsap.utils.clamp(0, 1, (e.clientX - r.left) / r.width);
+        apply(toRot(t), toHue(t));
+      });
+      btn.addEventListener("click", function () {
+        apply(gsap.utils.snap(5, gsap.utils.random(-28, 28)), gsap.utils.random([200, 240, 265, 300, 330]));
+      });
+      apply(0, 265);
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

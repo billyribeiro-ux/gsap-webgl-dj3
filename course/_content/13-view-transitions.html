@@ -1,0 +1,109 @@
+<!--lead: The View Transitions API is the closest the web has come to magic: tell the browser "the DOM is about to change," and it animates between the old and new states — even morphing one element into another across that change.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Normally, changing the DOM is instant and jarring. The <strong>View Transitions
+    API</strong> changes that: wrap your DOM update in
+    <code>document.startViewTransition(...)</code> and the browser snapshots the
+    before and after, then crossfades between them. Give two elements the same
+    <code>view-transition-name</code> and it does something remarkable — it
+    <em>morphs</em> the first into the second, animating position, size and shape.
+  </p>
+
+  <h2>Grid → detail, morphed</h2>
+  <p>
+    Click a tile. Instead of snapping, it smoothly expands into the detail view — and
+    collapses back when you close it. The thumbnail and the detail share a
+    <code>view-transition-name</code>, so the browser knows they're "the same thing"
+    and tweens between them. No animation library involved.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · click a tile</span>
+      <div id="vt-demo" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <!--code file="css/ViewTransitions.svelte" name="src/lib/ViewTransitions.svelte"-->
+  </div>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The Svelte detail that trips everyone up: <code>flushSync</code>.</strong>
+      Svelte applies state changes asynchronously, but the View Transitions callback
+      needs the DOM updated <em>synchronously</em> so it can snapshot the new state.
+      Import <code>flushSync</code> from <code>svelte</code> and call it inside the
+      callback right after you change state. Forget it and you'll get a crossfade of
+      the <em>old</em> state into itself — no morph.
+    </div>
+  </div>
+
+  <h2>The killer feature: cross-page transitions in SvelteKit</h2>
+  <p>
+    View Transitions shine most <em>between routes</em> — a thumbnail on a list page
+    that morphs into the hero image on the detail page, like a native app. SvelteKit
+    makes this a few lines in your root layout using the <code>onNavigate</code> hook:
+  </p>
+  <!--code file="css/ViewTransitionsKit.svelte" name="src/routes/+layout.svelte"-->
+  <p>
+    Add a matching <code>view-transition-name</code> to the element on both pages and
+    SvelteKit + the browser handle the morph across the navigation. This single hook,
+    in your layout, upgrades your entire app's page changes to cinematic transitions.
+  </p>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Always feature-detect</strong> with <code>if (!document.startViewTransition)
+      return;</code> and let the change happen instantly as a fallback — support is
+      strong but not universal. And a unique <code>view-transition-name</code> must
+      appear only <em>once</em> on screen at a time, or the browser can't decide what
+      morphs into what.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("vt-demo");
+    if (!mount) return;
+    const shots = [
+      { id: 1, title: "Aurora", hue: 265 },
+      { id: 2, title: "Tide", hue: 180 },
+      { id: 3, title: "Ember", hue: 330 },
+      { id: 4, title: "Dusk", hue: 220 }
+    ];
+    let openId = null;
+    const bg = (h) => "linear-gradient(150deg,hsl(" + h + " 80% 60%),hsl(" + (h + 40) + " 70% 30%))";
+
+    function render() {
+      if (openId === null) {
+        mount.innerHTML =
+          '<div style="width:min(420px,92%);display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem">' +
+          shots
+            .map(
+              (s) =>
+                '<button data-id="' + s.id + '" style="aspect-ratio:4/3;border:1px solid #2a3142;border-radius:14px;color:#fff;font-weight:700;cursor:pointer;view-transition-name:shot-' + s.id + ';background:' + bg(s.hue) + '">' + s.title + "</button>"
+            )
+            .join("") +
+          "</div>";
+      } else {
+        const s = shots.find((x) => x.id === openId);
+        mount.innerHTML =
+          '<button data-close="1" style="width:min(420px,92%);aspect-ratio:16/9;border:1px solid #2a3142;border-radius:18px;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;view-transition-name:shot-' + s.id + ';background:' + bg(s.hue) + '">' +
+          '<span style="font-size:2rem;font-weight:800">' + s.title + "</span><small style='opacity:.8'>click to close</small></button>";
+      }
+    }
+    function go(next) {
+      if (!document.startViewTransition || window.MOTION_REDUCED) { openId = next; render(); return; }
+      document.startViewTransition(() => { openId = next; render(); });
+    }
+    mount.addEventListener("click", (e) => {
+      const open = e.target.closest("[data-id]");
+      const close = e.target.closest("[data-close]");
+      if (open) go(Number(open.dataset.id));
+      else if (close) go(null);
+    });
+    render();
+  })();
+</script>

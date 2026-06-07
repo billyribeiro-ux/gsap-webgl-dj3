@@ -1,0 +1,90 @@
+<!--lead: Scroll down, move sideways. The horizontal-scroll gallery is one of the most recognizable "premium site" effects — and it's a single ScrollTrigger that turns vertical scroll into horizontal motion.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    You've seen it on Apple product pages and award-winning agency sites: a section
+    locks in place, and as you keep scrolling down, a row of panels slides
+    <em>sideways</em>. It feels exotic, but the mechanism is simple — pin the section so
+    it stays put, then map the scroll distance to a horizontal <code>x</code> tween of
+    the track.
+  </p>
+
+  <h2>Vertical in, horizontal out</h2>
+  <p>
+    Scroll inside the panel below. The section pins and the four cards travel left as
+    you scroll down, then release when the last one arrives. Scroll back up and it
+    rewinds.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · scroll ↓</span>
+      <div id="hs-scroller" style="position:relative;width:100%;height:360px;overflow-y:auto;overflow-x:hidden"></div>
+    </div>
+    <!--code file="scrolltrigger/HorizontalScroll.svelte" name="src/lib/HorizontalScroll.svelte"-->
+  </div>
+
+  <h2>The three moving parts</h2>
+  <ul>
+    <li><strong>Pin the section</strong> (<code>pin: true</code>) so it stays fixed in
+      the viewport while the scroll happens "through" it.</li>
+    <li><strong>Tween the track's <code>x</code></strong> from 0 to
+      <code>-(scrollWidth - viewportWidth)</code> — exactly far enough to bring the last
+      panel into view.</li>
+    <li><strong>Match the scroll length to the travel distance</strong> with
+      <code>end: '+=' + distance</code>, and <code>scrub</code> to tie progress to the
+      scrollbar. Now one pixel of vertical scroll equals one pixel of horizontal travel.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Make it responsive with functions.</strong> Notice <code>x: () =&gt;
+      -distance()</code> and <code>end: () =&gt; '+=' + distance()</code> are
+      <em>functions</em>, plus <code>invalidateOnRefresh: true</code>. On resize,
+      ScrollTrigger re-runs them and recomputes the travel — so the effect stays correct
+      on every screen. Hard-coding pixel values here is the #1 way horizontal scroll
+      breaks on mobile.
+    </div>
+  </div>
+
+  <p>
+    You can put <em>anything</em> in the panels — pin a 3D Threlte canvas and rotate a
+    product as it scrolls past, reveal text with SplitText on each panel, or stagger
+    cards within a panel as it enters. Horizontal scroll is a stage; everything else you've
+    learned performs on it.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var scroller = document.getElementById("hs-scroller");
+    if (!scroller) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.ScrollTrigger === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap, ScrollTrigger = window.ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+      var labels = ["Capture", "Edit", "Grade", "Deliver"];
+      scroller.innerHTML =
+        '<div class="hs-wrap" style="height:360px;overflow:hidden">' +
+          '<div class="hs-track" style="display:flex;height:100%;width:max-content">' +
+            labels.map(function (l, i) {
+              return '<article style="width:74%;min-width:240px;height:100%;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;padding:1.5rem;border-right:1px solid #1b2030;background:linear-gradient(135deg,hsl(' + (220 + i * 30) + ' 60% 18%),#05060a)">' +
+                '<span style="font-family:ui-monospace,monospace;color:#19e3d6">0' + (i + 1) + '</span>' +
+                '<h3 style="font-size:clamp(1.8rem,7vw,3rem);color:#f4f6fb;letter-spacing:-.03em;margin:.3rem 0 0">' + l + "</h3></article>";
+            }).join("") +
+          "</div></div>" +
+          '<div style="height:520px;display:grid;place-items:center;color:#3a4254;font-size:.8rem">↑ scroll up to rewind</div>';
+
+      var wrap = scroller.querySelector(".hs-wrap");
+      var track = scroller.querySelector(".hs-track");
+      var distance = function () { return track.scrollWidth - wrap.offsetWidth; };
+      gsap.to(track, {
+        x: function () { return -distance(); }, ease: "none",
+        scrollTrigger: { scroller: scroller, trigger: wrap, start: "top top", end: function () { return "+=" + distance(); }, pin: true, scrub: 1, anticipatePin: 1, invalidateOnRefresh: true }
+      });
+      ScrollTrigger.refresh();
+    }
+    build();
+  })();
+</script>

@@ -4,10 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stagger — Choreographing Many Elements — MOTION</title>
-  <meta name="description" content="Stagger — Choreographing Many Elements" />
+  <meta name="description" content="Stagger is the cinematic multiplier. The difference between ten things appearing at once and ten things rippling into view is one property — and it's the secret behind almost every "how did they coordinate that?" reveal." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
 </head>
 <body data-slug="41-stagger">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +28,140 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M4 · GSAP Core</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Stagger — Choreographing Many Elements</h1>
-        
+        <p class="hero__lead" data-reveal="120">Stagger is the cinematic multiplier. The difference between ten things appearing at once and ten things rippling into view is one property — and it's the secret behind almost every "how did they coordinate that?" reveal.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    You met basic stagger in the first GSAP lesson. Now we unlock its real power: GSAP
+    can stagger across a <strong>grid</strong>, ripple from any <strong>origin</strong>,
+    and even compute each element's delay from a custom function. This is how teams
+    animate a wall of 48 tiles into a single, organic wave.
+  </p>
+
+  <h2>A ripple from the center</h2>
+  <p>
+    Forty-eight cells, one <code>gsap.from</code>. The <code>stagger</code> object tells
+    GSAP the grid shape and to radiate outward from the middle. Hit replay and watch the
+    wave spread.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · grid stagger</span>
+      <div id="stagger-demo" class="center" style="width:100%;height:100%"></div>
+      <button class="stage__replay" type="button" data-replay="stagger" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <div class="codepanel" data-file="src/lib/StaggerGrid.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/StaggerGrid.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>Stagger — Choreographing Many Elements builds directly on <em>GSAP Core</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import type { Attachment } from 'svelte/attachments';
+
+  const COLS = 8;
+  const ROWS = 6;
+  const cells = Array.from({ length: COLS * ROWS });
+
+  // Advanced stagger: the `grid` + `from` options ripple the animation across
+  // two dimensions. 'center' radiates outward like a drop in water; try 'edges',
+  // 'end', or [row, col] coordinates for completely different choreography.
+  const ripple: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const ctx = gsap.context(() =&gt; {
+      gsap.from(node.children, {
+        scale: 0,
+        opacity: 0,
+        transformOrigin: 'center',
+        ease: 'back.out(1.7)',
+        duration: 0.6,
+        stagger: { each: 0.04, grid: [ROWS, COLS], from: 'center' }
+      });
+    }, node);
+    return () =&gt; ctx.revert();
+  };
+&lt;/script&gt;
+
+&lt;div class="grid" style="--cols: {COLS}" {@attach ripple}&gt;
+  {#each cells as _cell, i (i)}
+    &lt;span class="cell"&gt;&lt;/span&gt;
+  {/each}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 8px; width: min(420px, 92%); }
+  .cell { aspect-ratio: 1; border-radius: 6px; background: linear-gradient(135deg, #7c5cff, #19e3d6); }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The stagger object, decoded</h2>
+  <ul>
+    <li><strong><code>each: 0.04</code></strong> — seconds between consecutive elements.
+      (Use <code>amount</code> instead to spread the <em>total</em> stagger across a
+      fixed time, regardless of count — handy when the number of items varies.)</li>
+    <li><strong><code>grid: [rows, cols]</code></strong> — tells GSAP the 2D layout so it
+      can measure distances between cells. Use <code>'auto'</code> to let GSAP infer it
+      from the DOM.</li>
+    <li><strong><code>from</code></strong> — the origin of the ripple:
+      <code>'center'</code>, <code>'edges'</code>, <code>'start'</code>,
+      <code>'end'</code>, <code>'random'</code>, or an index/<code>[row, col]</code>.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Stagger is a function in disguise.</strong> You can pass
+      <code>stagger</code> a function <code>(index, target, list) =&gt; delay</code> for
+      total control — drive delays from data, distance to the pointer, or a noise field.
+      And every stagger accepts its own <code>ease</code> (via
+      <code>{`{ each, ease: 'power2.in' }`}</code>) that shapes how the <em>delays
+      themselves</em> are distributed — accelerating or decelerating the wave. This is
+      the deep end most developers never find.
+    </div>
+  </div>
+
+  <h2>Where you'll use it</h2>
+  <p>
+    Card grids and galleries revealing on scroll; navigation menus opening in sequence;
+    letters of a headline (you saw this with SplitText); list items entering; a bar chart
+    growing bar-by-bar. Anywhere there are <em>many of a thing</em>, stagger turns a flat
+    appearance into choreography. Restraint still matters — a 0.03–0.06s each is usually
+    plenty; too large and it feels sluggish.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("stagger-demo");
+    if (!mount) return;
+    var COLS = 8, ROWS = 6;
+    function build() {
+      if (typeof window.gsap === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      var grid = document.createElement("div");
+      grid.style.cssText = "display:grid;grid-template-columns:repeat(" + COLS + ",1fr);gap:8px;width:min(420px,92%)";
+      grid.innerHTML = Array.from({ length: COLS * ROWS }).map(function () {
+        return '<span style="aspect-ratio:1;border-radius:6px;background:linear-gradient(135deg,#7c5cff,#19e3d6)"></span>';
+      }).join("");
+      mount.innerHTML = ""; mount.appendChild(grid);
+      function play() {
+        if (window.MOTION_REDUCED) return;
+        gsap.from(grid.children, { scale: 0, opacity: 0, transformOrigin: "center", ease: "back.out(1.7)", duration: 0.6, stagger: { each: 0.04, grid: [ROWS, COLS], from: "center" } });
+      }
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.stagger = play;
+      play();
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

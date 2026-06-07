@@ -4,10 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>An Apple-Style Product Reveal — MOTION</title>
-  <meta name="description" content="An Apple-Style Product Reveal" />
+  <meta name="description" content="The Apple product page is the gold standard of scroll storytelling: a product that turns and grows as captions fade through chapters, every frame welded to the scrollbar. Here's how to build one." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/ScrollTrigger.min.js" defer></script>
 </head>
 <body data-slug="b1-apple-reveal">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +29,178 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M11 · Capstone Compositions</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">An Apple-Style Product Reveal</h1>
-        
+        <p class="hero__lead" data-reveal="120">The Apple product page is the gold standard of scroll storytelling: a product that turns and grows as captions fade through chapters, every frame welded to the scrollbar. Here's how to build one.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    Open any flagship Apple product page and scroll. The device rotates, scales and
+    settles while short lines of copy crossfade in and out — and it all tracks your
+    scroll precisely, forward and back. It looks like an enormous production. It's
+    actually <strong>one pinned timeline</strong> scrubbed by ScrollTrigger, built from
+    techniques you already have.
+  </p>
+
+  <h2>Pin, scrub, crossfade</h2>
+  <p>
+    Scroll the panel. The product arrives, turns to show its profile as the second
+    caption appears, then faces you for the hero line. Three "chapters," one timeline.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · scroll ↓</span>
+      <div id="apple-scroller" style="position:relative;width:100%;height:380px;overflow-y:auto;overflow-x:hidden"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/AppleReveal.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/AppleReveal.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>An Apple-Style Product Reveal builds directly on <em>Capstone Compositions</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  import type { Attachment } from 'svelte/attachments';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // The Apple product page move: pin the product, then scrub a single timeline so
+  // it rotates and scales while captions crossfade through "chapters" — all tied
+  // to scroll. One timeline + one ScrollTrigger does the whole sequence.
+  const reveal: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const q = gsap.utils.selector(node);
+    const ctx = gsap.context(() =&gt; {
+      const tl = gsap.timeline({
+        defaults: { ease: 'none' },
+        scrollTrigger: {
+          trigger: node,
+          start: 'top top',
+          end: '+=2200',
+          pin: true,
+          scrub: 1
+        }
+      });
+
+      // Chapter 1 — arrival
+      tl.from(q('.product'), { scale: 0.6, autoAlpha: 0, rotateY: -40 }, 0)
+        .from(q('.cap-1'), { autoAlpha: 0, y: 30 }, 0.1)
+        .to(q('.cap-1'), { autoAlpha: 0, y: -30 }, 1)
+        // Chapter 2 — turn to profile, second caption
+        .to(q('.product'), { rotateY: 25, scale: 1.05 }, 1)
+        .fromTo(q('.cap-2'), { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0 }, 1.1)
+        .to(q('.cap-2'), { autoAlpha: 0, y: -30 }, 2)
+        // Chapter 3 — hero shot, final caption
+        .to(q('.product'), { rotateY: 0, scale: 1.18 }, 2)
+        .fromTo(q('.cap-3'), { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0 }, 2.1);
+    }, node);
+
+    return () =&gt; ctx.revert();
+  };
+&lt;/script&gt;
+
+&lt;section class="reveal" {@attach reveal}&gt;
+  &lt;div class="stageinner"&gt;
+    &lt;div class="product" aria-hidden="true"&gt;
+      &lt;div class="screen"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;p class="cap cap-1"&gt;Forged from a single block.&lt;/p&gt;
+    &lt;p class="cap cap-2"&gt;Every angle, considered.&lt;/p&gt;
+    &lt;p class="cap cap-3"&gt;This is Nebula.&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/section&gt;
+
+&lt;style&gt;
+  .reveal { height: 100vh; }
+  .stageinner { position: relative; height: 100vh; display: grid; place-items: center; perspective: 1200px; overflow: hidden; }
+  .product {
+    width: 180px;
+    height: 360px;
+    border-radius: 36px;
+    background: linear-gradient(150deg, #2b2350, #0a0c14);
+    border: 1px solid #3a3170;
+    box-shadow: 0 40px 120px -30px #7c5cff66;
+    transform-style: preserve-3d;
+    display: grid;
+    place-items: center;
+  }
+  .screen { width: 80%; height: 88%; border-radius: 26px; background: radial-gradient(120% 80% at 50% 0%, #7c5cff55, #05060a); }
+  .cap { position: absolute; bottom: 12%; margin: 0; font-size: clamp(1.2rem, 3.5vw, 2rem); font-weight: 700; color: #f4f6fb; text-align: center; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The anatomy of a scroll story</h2>
+  <ul>
+    <li><strong>One pinned section.</strong> <code>pin: true</code> holds the stage
+      still while the user scrolls a long virtual distance (<code>end: '+=2200'</code>).
+      That distance becomes your "film reel."</li>
+    <li><strong>One scrubbed timeline.</strong> Everything — rotation, scale, caption
+      crossfades — lives on a single timeline with <code>scrub: 1</code>. The scrollbar
+      <em>is</em> the playhead, so scrolling back perfectly rewinds the story.</li>
+    <li><strong>Chapters via position.</strong> We place each beat at explicit timeline
+      positions (0, 1, 2…) so captions hand off cleanly: one fades up and out as the
+      next fades in. That overlap is the craft.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a16,16,0,1,1,16-16A16,16,0,0,1,128,192Zm8-49.72a8,8,0,0,1-16,0V80a8,8,0,0,1,16,0Z" transform="rotate(180 128 128)"/></svg></span>
+    <div class="callout__body">
+      <strong>Use <code>autoAlpha</code>, not <code>opacity</code>, for crossfades.</strong>
+      <code>autoAlpha</code> animates opacity <em>and</em> flips
+      <code>visibility</code> at the ends — so a faded-out caption can't be clicked or
+      read by screen readers while invisible. It's a small GSAP nicety that matters for
+      accessibility in scroll stories where many elements overlap.
+    </div>
+  </div>
+
+  <p>
+    Swap the placeholder product for a real <code>&lt;img&gt;</code> sequence, or — for
+    the full effect — a Threlte 3D model whose rotation you drive from the same scrubbed
+    timeline. Layer in SplitText for the captions and you have a page that rivals the
+    studios. It's all composition: pin, scrub, hand off, repeat.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var scroller = document.getElementById("apple-scroller");
+    if (!scroller) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.ScrollTrigger === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap, ScrollTrigger = window.ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+      scroller.innerHTML =
+        '<div class="ar-pin" style="position:relative;height:380px;display:grid;place-items:center;perspective:1200px;overflow:hidden">' +
+          '<div class="ar-product" style="width:120px;height:240px;border-radius:28px;background:linear-gradient(150deg,#2b2350,#0a0c14);border:1px solid #3a3170;box-shadow:0 40px 100px -30px #7c5cff66;transform-style:preserve-3d;display:grid;place-items:center">' +
+            '<div style="width:80%;height:88%;border-radius:20px;background:radial-gradient(120% 80% at 50% 0%,#7c5cff55,#05060a)"></div></div>' +
+          '<p class="ar-cap ar-1" style="position:absolute;bottom:12%;margin:0;font-size:clamp(1.1rem,3.5vw,1.7rem);font-weight:700;color:#f4f6fb;text-align:center">Forged from a single block.</p>' +
+          '<p class="ar-cap ar-2" style="position:absolute;bottom:12%;margin:0;font-size:clamp(1.1rem,3.5vw,1.7rem);font-weight:700;color:#f4f6fb;text-align:center">Every angle, considered.</p>' +
+          '<p class="ar-cap ar-3" style="position:absolute;bottom:12%;margin:0;font-size:clamp(1.1rem,3.5vw,1.7rem);font-weight:700;color:#f4f6fb;text-align:center">This is Nebula.</p>' +
+        "</div>" +
+        '<div style="height:560px;display:grid;place-items:center;color:#3a4254;font-size:.8rem">↑ scroll up to rewind</div>';
+      var q = gsap.utils.selector(scroller);
+      if (window.MOTION_REDUCED) { gsap.set(q(".ar-2,.ar-1"), { autoAlpha: 0 }); return; }
+      var tl = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: { scroller: scroller, trigger: q(".ar-pin"), start: "top top", end: "+=1600", pin: true, scrub: 1 }
+      });
+      tl.from(q(".ar-product"), { scale: 0.6, autoAlpha: 0, rotateY: -40 }, 0)
+        .from(q(".ar-1"), { autoAlpha: 0, y: 30 }, 0.1)
+        .to(q(".ar-1"), { autoAlpha: 0, y: -30 }, 1)
+        .to(q(".ar-product"), { rotateY: 25, scale: 1.05 }, 1)
+        .fromTo(q(".ar-2"), { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0 }, 1.1)
+        .to(q(".ar-2"), { autoAlpha: 0, y: -30 }, 2)
+        .to(q(".ar-product"), { rotateY: 0, scale: 1.18 }, 2)
+        .fromTo(q(".ar-3"), { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0 }, 2.1);
+      gsap.set(q(".ar-2,.ar-3"), { autoAlpha: 0 });
+      ScrollTrigger.refresh();
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

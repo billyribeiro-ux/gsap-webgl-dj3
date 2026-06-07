@@ -1,0 +1,94 @@
+<!--lead: A janky animation is worse than none at all. Two disciplines separate professional motion from the rest: animating only what the GPU can handle, and always honoring a user's request for less movement.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Beautiful motion that drops frames feels broken. The good news: hitting a steady
+    60fps (or 120 on modern displays) is mostly about animating the
+    <strong>right properties</strong> — and being a responsible engineer means
+    motion that <strong>respects</strong> the people using it.
+  </p>
+
+  <h2>Animate transform &amp; opacity. Almost nothing else.</h2>
+  <p>
+    The browser renders in stages: <em>layout</em> (where things go) → <em>paint</em>
+    (how they look) → <em>composite</em> (layering it onto the screen). Animating
+    <code>transform</code> and <code>opacity</code> touches only the last,
+    GPU-accelerated stage. Animating <code>width</code>, <code>height</code>,
+    <code>top/left</code>, or <code>margin</code> forces <em>layout</em> on every
+    single frame — the most expensive work there is — and your framerate collapses.
+  </p>
+  <ul>
+    <li>Move things with <code>transform: translate()</code>, not <code>top/left</code>.</li>
+    <li>Resize with <code>transform: scale()</code>, not <code>width/height</code>.</li>
+    <li>Fade with <code>opacity</code>, not by animating colors with alpha.</li>
+  </ul>
+
+  <h2>Reduced motion is non-negotiable</h2>
+  <p>
+    Some people get dizzy or nauseous from motion. Their operating system lets them
+    ask for less of it, and your job is to listen. The demo below flies a panel in —
+    but if you've enabled "reduce motion," it simply appears, instantly.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · respects your OS setting</span>
+      <div id="perf-demo" class="center stack" style="width:100%;height:100%;gap:0;padding:1.25rem"></div>
+    </div>
+    <!--code file="css/PerfAware.svelte" name="src/lib/PerfAware.svelte"-->
+  </div>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a16,16,0,1,1,16-16A16,16,0,0,1,128,192Zm8-49.72a8,8,0,0,1-16,0V80a8,8,0,0,1,16,0Z" transform="rotate(180 128 128)"/></svg></span>
+    <div class="callout__body">
+      <strong>Two ways to honor the preference.</strong> In CSS, wrap motion in
+      <code>@media (prefers-reduced-motion: reduce)</code> and zero out the durations
+      (every component in this course already does this). In Svelte logic, read the
+      reactive <code>prefersReducedMotion.current</code> from <code>svelte/motion</code>
+      and adapt your transition options — exactly what the panel does. Never remove the
+      content; just remove the movement.
+    </div>
+  </div>
+
+  <h2>A few more pro habits</h2>
+  <ul>
+    <li><strong><code>will-change</code> is a scalpel, not a hammer.</strong> It promotes
+      an element to its own GPU layer. Add it right before an animation and remove it
+      after; slapping it on everything <em>hurts</em> performance by exhausting GPU
+      memory.</li>
+    <li><strong>Animate fewer, bigger things.</strong> Staggering 500 elements is
+      gorgeous but can choke a low-end phone. Test on real, cheap hardware.</li>
+    <li><strong>Clean up.</strong> Kill timelines, disconnect observers, dispose WebGL
+      contexts on unmount — the <code>gsap.context</code> / attachment-cleanup pattern
+      from this course handles it automatically.</li>
+  </ul>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("perf-demo");
+    if (!mount) return;
+    mount.style.flexDirection = "column";
+    mount.style.justifyContent = "flex-start";
+    const btn = document.createElement("button");
+    btn.style.cssText = "padding:.7rem 1.5rem;border-radius:999px;border:none;font-weight:700;color:#0a0414;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer";
+    const slot = document.createElement("div");
+    slot.style.cssText = "margin-top:1rem;min-height:96px;width:320px";
+    mount.append(btn, slot);
+    let open = false;
+    const reduce = window.MOTION_REDUCED;
+    function render() {
+      btn.textContent = open ? "Hide panel" : "Reveal panel";
+      btn.setAttribute("aria-expanded", String(open));
+      if (!open) { slot.innerHTML = ""; return; }
+      slot.innerHTML =
+        '<div class="perf-panel" style="max-width:320px;padding:1.1rem 1.3rem;border-radius:14px;background:#11141f;border:1px solid #1b2030">' +
+        '<strong style="color:#f4f6fb">Composited &amp; considerate</strong>' +
+        '<p style="margin:.3rem 0 0;color:#8b93a7;font-size:.9rem">Flies in on <code style="color:#19e3d6">transform</code> + <code style="color:#19e3d6">opacity</code> only — and snaps instantly under reduced motion.</p></div>';
+      const panel = slot.firstChild;
+      if (!reduce) panel.animate([{ opacity: 0, transform: "translateY(28px)" }, { opacity: 1, transform: "none" }], { duration: 420, easing: "cubic-bezier(.23,1,.32,1)" });
+    }
+    btn.addEventListener("click", () => { open = !open; render(); });
+    render();
+  })();
+</script>

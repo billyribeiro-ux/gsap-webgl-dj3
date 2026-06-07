@@ -4,10 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>A Hollywood Title Sequence — MOTION</title>
-  <meta name="description" content="A Hollywood Title Sequence" />
+  <meta name="description" content="The final boss: a Hollywood title sequence. A studio card, a sweep of light, and a title that resolves out of a blur into crisp focus. This is everything — timeline, SplitText, easing, restraint — in one cinematic moment." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/SplitText.min.js" defer></script>
 </head>
 <body data-slug="b2-title-sequence">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +29,199 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M11 · Capstone Compositions</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">A Hollywood Title Sequence</h1>
-        
+        <p class="hero__lead" data-reveal="120">The final boss: a Hollywood title sequence. A studio card, a sweep of light, and a title that resolves out of a blur into crisp focus. This is everything — timeline, SplitText, easing, restraint — in one cinematic moment.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    A great film opens before a single word of dialogue — the studio ident, the slow
+    resolve of the title, the hush before the story. We can build that on the web, and
+    it's the perfect graduation project: it uses a master timeline, SplitText, careful
+    easing and, above all, the restraint that separates cinematic from cheesy.
+  </p>
+
+  <h2>Roll the titles</h2>
+  <p>
+    The studio name fades through, a light sweeps the frame, and the title resolves from
+    a wide, blurred, oversized state into sharp focus — then the subtitle settles. Hit
+    replay to watch it again.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0;min-height:380px">
+      <span class="stage__label">Live demo · title sequence</span>
+      <div id="title-demo" style="width:100%;height:100%;min-height:380px"></div>
+      <button class="stage__replay" type="button" data-replay="titleseq" aria-label="Replay" title="Replay">
+        <svg viewBox="0 0 256 256" width="18" height="18" fill="currentColor"><path d="M224,128a96,96,0,1,1-96-96A8,8,0,0,1,128,48,80,80,0,1,0,208,128a8,8,0,0,1,16,0Z"/></svg>
+      </button>
+    </div>
+    <div class="codepanel" data-file="src/lib/TitleSequence.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/TitleSequence.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>A Hollywood Title Sequence builds directly on <em>Capstone Compositions</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { SplitText } from 'gsap/SplitText';
+  import type { Attachment } from 'svelte/attachments';
+
+  gsap.registerPlugin(SplitText);
+
+  type Props = { studio?: string; title: string; subtitle?: string; replay?: number };
+  let { studio = 'NEBULA PICTURES', title, subtitle = 'In cinemas everywhere', replay = 0 }: Props = $props();
+
+  // A film-title sequence: studio card fades through, a light sweeps, the title
+  // resolves from a wide, blurred, dim state into sharp focus — then the subtitle
+  // settles. It's a master timeline composed of beats you already know.
+  const sequence: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const q = gsap.utils.selector(node);
+    let split: SplitText | undefined;
+
+    const ctx = gsap.context(() =&gt; {
+      document.fonts.ready.then(() =&gt; {
+        split = new SplitText(q('.title'), { type: 'chars' });
+
+        const tl = gsap.timeline();
+        tl.from(q('.studio'), { autoAlpha: 0, letterSpacing: '0.6em', duration: 1, ease: 'power2.out' })
+          .to(q('.studio'), { autoAlpha: 0, duration: 0.6 }, '+=0.6')
+          .to(q('.flare'), { xPercent: 220, duration: 1.1, ease: 'power2.inOut' }, '-=0.3')
+          // The title resolves into focus: from wide + blurred + dim to sharp.
+          .from(
+            split!.chars,
+            {
+              autoAlpha: 0,
+              filter: 'blur(14px)',
+              scale: 1.6,
+              duration: 1.1,
+              ease: 'expo.out',
+              stagger: { each: 0.04, from: 'center' }
+            },
+            '-=0.5'
+          )
+          .from(q('.subtitle'), { autoAlpha: 0, y: 14, letterSpacing: '0.1em', duration: 0.8, ease: 'power2.out' }, '-=0.3');
+      });
+    }, node);
+
+    return () =&gt; {
+      split?.revert();
+      ctx.revert();
+    };
+  };
+&lt;/script&gt;
+
+{#key replay}
+  &lt;div class="frame" {@attach sequence}&gt;
+    &lt;div class="vignette" aria-hidden="true"&gt;&lt;/div&gt;
+    &lt;span class="flare" aria-hidden="true"&gt;&lt;/span&gt;
+    &lt;p class="studio"&gt;{studio}&lt;/p&gt;
+    &lt;h1 class="title"&gt;{title}&lt;/h1&gt;
+    &lt;p class="subtitle"&gt;{subtitle}&lt;/p&gt;
+  &lt;/div&gt;
+{/key}
+
+&lt;style&gt;
+  .frame {
+    position: relative;
+    width: 100%;
+    min-height: 360px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 40%, #15102e, #05060a 70%);
+    isolation: isolate;
+  }
+  .vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px 40px #05060a; pointer-events: none; }
+  .flare {
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 30%;
+    height: 100%;
+    background: linear-gradient(100deg, transparent, #ffffff22 50%, transparent);
+    transform: skewX(-12deg);
+    pointer-events: none;
+  }
+  .studio { position: absolute; margin: 0; font-size: 0.9rem; font-weight: 600; letter-spacing: 0.4em; color: #aab2c5; }
+  .title { margin: 0; font-size: clamp(2rem, 8vw, 5rem); font-weight: 800; letter-spacing: 0.02em; color: #fff; text-align: center; }
+  .subtitle { position: absolute; bottom: 14%; margin: 0; font-size: 0.95rem; letter-spacing: 0.25em; text-transform: uppercase; color: #8b93a7; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flare { display: none; }
+  }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The techniques, one last time</h2>
+  <ul>
+    <li><strong>Resolve, don't just fade.</strong> The title animates from
+      <code>blur(14px)</code> + <code>scale(1.6)</code> + invisible to sharp and settled.
+      That "coming into focus" quality reads as expensive because it mimics a camera
+      finding its focal point. Blur is the secret ingredient most people forget.</li>
+    <li><strong>SplitText from the center.</strong> Characters resolve with
+      <code>stagger: { from: 'center' }</code>, so the title blooms outward from its
+      middle — more elegant than a left-to-right sweep for a single hero line.</li>
+    <li><strong>The light sweep</strong> is a skewed gradient translated across the frame
+      on the same timeline — a tiny touch that adds production value for almost no code.</li>
+    <li><strong>One timeline owns it all</strong>, so the whole sequence has a single,
+      controllable playhead — which is exactly what the replay button restarts.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>This is composition, and composition is the job.</strong> Notice there's
+      nothing in this finale you didn't already learn. Mastery in motion design isn't an
+      endless list of tricks — it's taste in how you <em>combine</em> a handful of them:
+      the right easing, the right timing, the right restraint. You now have the tools.
+      The rest is practice, and an eye that you'll sharpen on every project. Go make
+      something worth watching.
+    </div>
+  </div>
+
+  <p class="muted">That's the course. From your first hover transition to a title sequence the studios would sign off on — you built all of it. Now go build yours.</p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("title-demo");
+    if (!mount) return;
+    var tl = null, split = null;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.SplitText === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      gsap.registerPlugin(window.SplitText);
+      mount.innerHTML =
+        '<div class="ts-frame" style="position:relative;width:100%;height:100%;min-height:380px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#15102e,#05060a 70%);isolation:isolate">' +
+          '<div aria-hidden="true" style="position:absolute;inset:0;box-shadow:inset 0 0 160px 40px #05060a;pointer-events:none"></div>' +
+          '<span class="ts-flare" aria-hidden="true" style="position:absolute;top:0;left:-40%;width:30%;height:100%;background:linear-gradient(100deg,transparent,#ffffff22 50%,transparent);transform:skewX(-12deg);pointer-events:none"></span>' +
+          '<p class="ts-studio" style="position:absolute;margin:0;font-size:.85rem;font-weight:600;letter-spacing:.4em;color:#aab2c5">NEBULA PICTURES</p>' +
+          '<h1 class="ts-title" style="margin:0;font-size:clamp(1.8rem,8vw,4rem);font-weight:800;letter-spacing:.02em;color:#fff;text-align:center">THE LAST SIGNAL</h1>' +
+          '<p class="ts-subtitle" style="position:absolute;bottom:14%;margin:0;font-size:.85rem;letter-spacing:.25em;text-transform:uppercase;color:#8b93a7">In cinemas everywhere</p>' +
+        "</div>";
+      var q = gsap.utils.selector(mount);
+      function play() {
+        if (window.MOTION_REDUCED) return;
+        if (tl) tl.kill();
+        if (split) split.revert();
+        split = new window.SplitText(q(".ts-title"), { type: "chars" });
+        tl = gsap.timeline();
+        tl.from(q(".ts-studio"), { autoAlpha: 0, letterSpacing: "0.6em", duration: 1, ease: "power2.out" })
+          .to(q(".ts-studio"), { autoAlpha: 0, duration: 0.6 }, "+=0.5")
+          .fromTo(q(".ts-flare"), { xPercent: 0 }, { xPercent: 220, duration: 1.1, ease: "power2.inOut" }, "-=0.3")
+          .from(split.chars, { autoAlpha: 0, filter: "blur(14px)", scale: 1.6, duration: 1.1, ease: "expo.out", stagger: { each: 0.04, from: "center" } }, "-=0.5")
+          .from(q(".ts-subtitle"), { autoAlpha: 0, y: 14, letterSpacing: "0.1em", duration: 0.8, ease: "power2.out" }, "-=0.3");
+      }
+      window.MotionDemos = window.MotionDemos || {};
+      window.MotionDemos.titleseq = play;
+      document.fonts.ready.then(play);
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

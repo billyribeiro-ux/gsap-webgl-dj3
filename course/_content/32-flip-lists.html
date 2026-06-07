@@ -1,0 +1,106 @@
+<!--lead: When a list reorders, sorts, or filters, the worst thing it can do is teleport. FLIP makes every item glide to its new home — and Svelte gives it to you in one directive.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    FLIP is a four-letter technique — <strong>First, Last, Invert, Play</strong> — and
+    one of the most satisfying effects on the web. Measure where each element starts
+    (First), let it jump to its new position (Last), <em>invert</em> that jump with a
+    transform so it appears not to have moved, then animate the transform away (Play).
+    Doing this by hand is fiddly. Svelte's <code>animate:flip</code> does all of it.
+  </p>
+
+  <h2>Reorder without the teleport</h2>
+  <p>
+    Hit <strong>Shuffle</strong> or <strong>Sort A–Z</strong>. Every chip smoothly
+    glides to its new slot instead of snapping. The list is just an array — we reorder
+    it, and FLIP animates the consequences.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · shuffle &amp; sort</span>
+      <div id="flip-list" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <!--code file="svelte/FlipList.svelte" name="src/lib/FlipList.svelte"-->
+  </div>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The key is everything.</strong> <code>animate:flip</code> only works in a
+      keyed each block — <code>{#each items as item (item)}</code>. The key is the
+      stable identity Svelte uses to recognize "this is the same chip, it just moved."
+      Use a unique, stable value (an id, or the text if unique). Use the array index as
+      a key and FLIP breaks — because the index never "moves," every position looks
+      occupied by a different item.
+    </div>
+  </div>
+
+  <h2>Enter, move, <em>and</em> leave: combine with transitions</h2>
+  <p>
+    <code>animate:flip</code> handles items that <em>move</em>. Pair it with
+    <code>transition:</code> for items that enter or leave, and you get fully fluid
+    lists — add an item and it flies in while the others slide to make room; remove one
+    and it fades while the gap closes. For the classic "item moves from list A to list
+    B" effect (think dragging a card between columns), Svelte's
+    <code>crossfade</code> transition sends a matched pair: the element fades out of one
+    list and a twin fades into the other at the right place. Together,
+    <code>flip</code> + <code>crossfade</code> are how you build kanban boards, sortable
+    galleries and filterable grids that feel physical.
+  </p>
+
+  <h2>Why this matters beyond looks</h2>
+  <p>
+    Motion here isn't decoration — it's <strong>continuity</strong>. When items glide
+    instead of teleporting, the user's eye tracks <em>where their item went</em>. Sort
+    a list and they can follow their favorite to its new rank; filter a grid and they
+    see what left versus what simply moved. FLIP preserves the user's mental model
+    through change, which is the highest purpose of interface animation.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("flip-list");
+    if (!mount) return;
+    mount.style.flexDirection = "column";
+    var ctrls = document.createElement("div");
+    ctrls.style.cssText = "display:flex;gap:.6rem;margin-bottom:1rem";
+    var bS = mk("Shuffle"), bA = mk("Sort A–Z");
+    ctrls.append(bS, bA);
+    var ul = document.createElement("ul");
+    ul.style.cssText = "list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;max-width:360px";
+    mount.append(ctrls, ul);
+    var items = ["Avatar", "Dune", "Gravity", "Inception", "Tenet", "Arrival"];
+    var nodes = {};
+    function mk(label) {
+      var b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = "padding:.5rem 1.1rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#d6dbe6;cursor:pointer;font-size:.85rem";
+      return b;
+    }
+    function paint() {
+      items.forEach(function (it) {
+        if (!nodes[it]) {
+          var li = document.createElement("li");
+          li.textContent = it;
+          li.style.cssText = "padding:.6rem 1.1rem;border-radius:999px;background:linear-gradient(135deg,#1b1340,#11141f);border:1px solid #2a3142;color:#f4f6fb;font-weight:600;font-size:.9rem";
+          nodes[it] = li;
+        }
+      });
+      // FLIP by hand with the Web Animations API: record First, reorder, play Invert.
+      var first = {};
+      items.forEach(function (it) { first[it] = nodes[it].getBoundingClientRect(); });
+      items.forEach(function (it) { ul.appendChild(nodes[it]); });
+      if (window.MOTION_REDUCED) return;
+      items.forEach(function (it) {
+        var last = nodes[it].getBoundingClientRect();
+        var dx = first[it].left - last.left, dy = first[it].top - last.top;
+        if (dx || dy) nodes[it].animate([{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(0.23,1,0.32,1)" });
+      });
+    }
+    bS.onclick = function () { items = items.slice().sort(function () { return Math.random() - 0.5; }); paint(); };
+    bA.onclick = function () { items = items.slice().sort(function (a, b) { return a.localeCompare(b); }); paint(); };
+    paint();
+  })();
+</script>

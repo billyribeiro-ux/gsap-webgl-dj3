@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The View Transitions API — MOTION</title>
-  <meta name="description" content="The View Transitions API" />
+  <meta name="description" content="The View Transitions API is the closest the web has come to magic: tell the browser "the DOM is about to change," and it animates between the old and new states — even morphing one element into another across that change." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
@@ -27,28 +27,240 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M1 · CSS Animation</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">The View Transitions API</h1>
-        
+        <p class="hero__lead" data-reveal="120">The View Transitions API is the closest the web has come to magic: tell the browser "the DOM is about to change," and it animates between the old and new states — even morphing one element into another across that change.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    Normally, changing the DOM is instant and jarring. The <strong>View Transitions
+    API</strong> changes that: wrap your DOM update in
+    <code>document.startViewTransition(...)</code> and the browser snapshots the
+    before and after, then crossfades between them. Give two elements the same
+    <code>view-transition-name</code> and it does something remarkable — it
+    <em>morphs</em> the first into the second, animating position, size and shape.
+  </p>
+
+  <h2>Grid → detail, morphed</h2>
+  <p>
+    Click a tile. Instead of snapping, it smoothly expands into the detail view — and
+    collapses back when you close it. The thumbnail and the detail share a
+    <code>view-transition-name</code>, so the browser knows they're "the same thing"
+    and tweens between them. No animation library involved.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · click a tile</span>
+      <div id="vt-demo" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/ViewTransitions.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/ViewTransitions.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>The View Transitions API builds directly on <em>CSS Animation</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { flushSync } from 'svelte';
+
+  // The View Transitions API animates between two DOM states for you. You change
+  // the DOM inside document.startViewTransition(...), and the browser crossfades —
+  // or, for elements sharing a `view-transition-name`, *morphs* one into the other.
+  type Shot = { id: number; title: string; hue: number };
+  const shots: Shot[] = [
+    { id: 1, title: 'Aurora', hue: 265 },
+    { id: 2, title: 'Tide', hue: 180 },
+    { id: 3, title: 'Ember', hue: 330 },
+    { id: 4, title: 'Dusk', hue: 220 }
+  ];
+
+  let openId = $state&lt;number | null&gt;(null);
+
+  function go(next: number | null): void {
+    // Progressive enhancement: if the API is missing, just swap state.
+    if (!document.startViewTransition) {
+      openId = next;
+      return;
+    }
+    document.startViewTransition(() =&gt; {
+      openId = next;
+      flushSync(); // force Svelte to apply the DOM change *inside* the transition
+    });
+  }
+&lt;/script&gt;
+
+&lt;div class="wrap"&gt;
+  {#if openId === null}
+    &lt;div class="grid"&gt;
+      {#each shots as shot (shot.id)}
+        &lt;button
+          class="thumb"
+          style="--h: {shot.hue}; view-transition-name: shot-{shot.id}"
+          onclick={() =&gt; go(shot.id)}
+        &gt;
+          {shot.title}
+        &lt;/button&gt;
+      {/each}
+    &lt;/div&gt;
+  {:else}
+    {@const shot = shots.find((s) =&gt; s.id === openId)!}
+    &lt;button
+      class="detail"
+      style="--h: {shot.hue}; view-transition-name: shot-{shot.id}"
+      onclick={() =&gt; go(null)}
+    &gt;
+      &lt;span&gt;{shot.title}&lt;/span&gt;
+      &lt;small&gt;click to close&lt;/small&gt;
+    &lt;/button&gt;
+  {/if}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .wrap { width: min(420px, 92%); }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
+  .thumb {
+    aspect-ratio: 4 / 3;
+    border: 1px solid #2a3142;
+    border-radius: 14px;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(150deg, hsl(var(--h) 80% 60%), hsl(calc(var(--h) + 40) 70% 30%));
+  }
+  .detail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 1px solid #2a3142;
+    border-radius: 18px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    background: linear-gradient(150deg, hsl(var(--h) 80% 60%), hsl(calc(var(--h) + 40) 70% 30%));
+  }
+  .detail span { font-size: 2rem; font-weight: 800; }
+  .detail small { opacity: 0.8; }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(::view-transition-group(*)) { animation: none; }
+  }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The Svelte detail that trips everyone up: <code>flushSync</code>.</strong>
+      Svelte applies state changes asynchronously, but the View Transitions callback
+      needs the DOM updated <em>synchronously</em> so it can snapshot the new state.
+      Import <code>flushSync</code> from <code>svelte</code> and call it inside the
+      callback right after you change state. Forget it and you'll get a crossfade of
+      the <em>old</em> state into itself — no morph.
+    </div>
+  </div>
+
+  <h2>The killer feature: cross-page transitions in SvelteKit</h2>
+  <p>
+    View Transitions shine most <em>between routes</em> — a thumbnail on a list page
+    that morphs into the hero image on the detail page, like a native app. SvelteKit
+    makes this a few lines in your root layout using the <code>onNavigate</code> hook:
+  </p>
+  <div class="codepanel" data-file="src/routes/+layout.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/routes/+layout.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { onNavigate } from '$app/navigation';
+
+  let { children } = $props();
+
+  // Drop this in your root +layout.svelte and EVERY client-side navigation in the
+  // app becomes a view transition. Elements that share a `view-transition-name`
+  // across the two pages will morph from one into the other.
+  onNavigate((navigation) =&gt; {
+    if (!document.startViewTransition) return;
+
+    return new Promise((resolve) =&gt; {
+      document.startViewTransition(async () =&gt; {
+        resolve();
+        await navigation.complete; // wait for the new page to be ready
+      });
+    });
+  });
+&lt;/script&gt;
+
+{@render children?.()}</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  <p>
+    Add a matching <code>view-transition-name</code> to the element on both pages and
+    SvelteKit + the browser handle the morph across the navigation. This single hook,
+    in your layout, upgrades your entire app's page changes to cinematic transitions.
+  </p>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Always feature-detect</strong> with <code>if (!document.startViewTransition)
+      return;</code> and let the change happen instantly as a fallback — support is
+      strong but not universal. And a unique <code>view-transition-name</code> must
+      appear only <em>once</em> on screen at a time, or the browser can't decide what
+      morphs into what.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("vt-demo");
+    if (!mount) return;
+    const shots = [
+      { id: 1, title: "Aurora", hue: 265 },
+      { id: 2, title: "Tide", hue: 180 },
+      { id: 3, title: "Ember", hue: 330 },
+      { id: 4, title: "Dusk", hue: 220 }
+    ];
+    let openId = null;
+    const bg = (h) => "linear-gradient(150deg,hsl(" + h + " 80% 60%),hsl(" + (h + 40) + " 70% 30%))";
+
+    function render() {
+      if (openId === null) {
+        mount.innerHTML =
+          '<div style="width:min(420px,92%);display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem">' +
+          shots
+            .map(
+              (s) =>
+                '<button data-id="' + s.id + '" style="aspect-ratio:4/3;border:1px solid #2a3142;border-radius:14px;color:#fff;font-weight:700;cursor:pointer;view-transition-name:shot-' + s.id + ';background:' + bg(s.hue) + '">' + s.title + "</button>"
+            )
+            .join("") +
+          "</div>";
+      } else {
+        const s = shots.find((x) => x.id === openId);
+        mount.innerHTML =
+          '<button data-close="1" style="width:min(420px,92%);aspect-ratio:16/9;border:1px solid #2a3142;border-radius:18px;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;view-transition-name:shot-' + s.id + ';background:' + bg(s.hue) + '">' +
+          '<span style="font-size:2rem;font-weight:800">' + s.title + "</span><small style='opacity:.8'>click to close</small></button>";
+      }
+    }
+    function go(next) {
+      if (!document.startViewTransition || window.MOTION_REDUCED) { openId = next; render(); return; }
+      document.startViewTransition(() => { openId = next; render(); });
+    }
+    mount.addEventListener("click", (e) => {
+      const open = e.target.closest("[data-id]");
+      const close = e.target.closest("[data-close]");
+      if (open) go(Number(open.dataset.id));
+      else if (close) go(null);
+    });
+    render();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

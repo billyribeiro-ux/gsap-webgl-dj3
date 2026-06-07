@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FLIP &amp; Crossfade — MOTION</title>
-  <meta name="description" content="FLIP &amp; Crossfade" />
+  <meta name="description" content="When a list reorders, sorts, or filters, the worst thing it can do is teleport. FLIP makes every item glide to its new home — and Svelte gives it to you in one directive." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
@@ -27,28 +27,166 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M3 · Svelte 5 Built-in Motion</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">FLIP & Crossfade</h1>
-        
+        <p class="hero__lead" data-reveal="120">When a list reorders, sorts, or filters, the worst thing it can do is teleport. FLIP makes every item glide to its new home — and Svelte gives it to you in one directive.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    FLIP is a four-letter technique — <strong>First, Last, Invert, Play</strong> — and
+    one of the most satisfying effects on the web. Measure where each element starts
+    (First), let it jump to its new position (Last), <em>invert</em> that jump with a
+    transform so it appears not to have moved, then animate the transform away (Play).
+    Doing this by hand is fiddly. Svelte's <code>animate:flip</code> does all of it.
+  </p>
+
+  <h2>Reorder without the teleport</h2>
+  <p>
+    Hit <strong>Shuffle</strong> or <strong>Sort A–Z</strong>. Every chip smoothly
+    glides to its new slot instead of snapping. The list is just an array — we reorder
+    it, and FLIP animates the consequences.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · shuffle &amp; sort</span>
+      <div id="flip-list" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/FlipList.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/FlipList.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>FLIP &amp; Crossfade builds directly on <em>Svelte 5 Built-in Motion</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { flip } from 'svelte/animate';
+  import { quintOut } from 'svelte/easing';
+
+  // FLIP = First, Last, Invert, Play. Svelte measures where each keyed item was
+  // (First) and where it lands (Last), then animates the difference. You just
+  // reorder the array; `animate:flip` makes every item glide to its new slot.
+  let items = $state(['Avatar', 'Dune', 'Gravity', 'Inception', 'Tenet', 'Arrival']);
+
+  function shuffle(): void {
+    items = [...items].sort(() =&gt; Math.random() - 0.5);
+  }
+  function sortAZ(): void {
+    items = [...items].sort((a, b) =&gt; a.localeCompare(b));
+  }
+&lt;/script&gt;
+
+&lt;div class="controls"&gt;
+  &lt;button onclick={shuffle}&gt;Shuffle&lt;/button&gt;
+  &lt;button onclick={sortAZ}&gt;Sort A–Z&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;ul class="list"&gt;
+  {#each items as item (item)}
+    &lt;!-- The key (item) is essential: it's how Svelte tracks identity across the
+         reorder so it knows which node moved where. --&gt;
+    &lt;li class="chip" animate:flip={{ duration: 420, easing: quintOut }}&gt;{item}&lt;/li&gt;
+  {/each}
+&lt;/ul&gt;
+
+&lt;style&gt;
+  .controls { display: flex; gap: 0.6rem; margin-bottom: 1rem; justify-content: center; }
+  button { padding: 0.5rem 1.1rem; border-radius: 999px; border: 1px solid #2a3142; background: #11141f; color: #d6dbe6; cursor: pointer; font-size: 0.85rem; }
+  button:hover { border-color: #19e3d6; color: #19e3d6; }
+  .list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; max-width: 360px; }
+  .chip {
+    padding: 0.6rem 1.1rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #1b1340, #11141f);
+    border: 1px solid #2a3142;
+    color: #f4f6fb;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The key is everything.</strong> <code>animate:flip</code> only works in a
+      keyed each block — <code>{#each items as item (item)}</code>. The key is the
+      stable identity Svelte uses to recognize "this is the same chip, it just moved."
+      Use a unique, stable value (an id, or the text if unique). Use the array index as
+      a key and FLIP breaks — because the index never "moves," every position looks
+      occupied by a different item.
+    </div>
+  </div>
+
+  <h2>Enter, move, <em>and</em> leave: combine with transitions</h2>
+  <p>
+    <code>animate:flip</code> handles items that <em>move</em>. Pair it with
+    <code>transition:</code> for items that enter or leave, and you get fully fluid
+    lists — add an item and it flies in while the others slide to make room; remove one
+    and it fades while the gap closes. For the classic "item moves from list A to list
+    B" effect (think dragging a card between columns), Svelte's
+    <code>crossfade</code> transition sends a matched pair: the element fades out of one
+    list and a twin fades into the other at the right place. Together,
+    <code>flip</code> + <code>crossfade</code> are how you build kanban boards, sortable
+    galleries and filterable grids that feel physical.
+  </p>
+
+  <h2>Why this matters beyond looks</h2>
+  <p>
+    Motion here isn't decoration — it's <strong>continuity</strong>. When items glide
+    instead of teleporting, the user's eye tracks <em>where their item went</em>. Sort
+    a list and they can follow their favorite to its new rank; filter a grid and they
+    see what left versus what simply moved. FLIP preserves the user's mental model
+    through change, which is the highest purpose of interface animation.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("flip-list");
+    if (!mount) return;
+    mount.style.flexDirection = "column";
+    var ctrls = document.createElement("div");
+    ctrls.style.cssText = "display:flex;gap:.6rem;margin-bottom:1rem";
+    var bS = mk("Shuffle"), bA = mk("Sort A–Z");
+    ctrls.append(bS, bA);
+    var ul = document.createElement("ul");
+    ul.style.cssText = "list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;max-width:360px";
+    mount.append(ctrls, ul);
+    var items = ["Avatar", "Dune", "Gravity", "Inception", "Tenet", "Arrival"];
+    var nodes = {};
+    function mk(label) {
+      var b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = "padding:.5rem 1.1rem;border-radius:999px;border:1px solid #2a3142;background:#11141f;color:#d6dbe6;cursor:pointer;font-size:.85rem";
+      return b;
+    }
+    function paint() {
+      items.forEach(function (it) {
+        if (!nodes[it]) {
+          var li = document.createElement("li");
+          li.textContent = it;
+          li.style.cssText = "padding:.6rem 1.1rem;border-radius:999px;background:linear-gradient(135deg,#1b1340,#11141f);border:1px solid #2a3142;color:#f4f6fb;font-weight:600;font-size:.9rem";
+          nodes[it] = li;
+        }
+      });
+      // FLIP by hand with the Web Animations API: record First, reorder, play Invert.
+      var first = {};
+      items.forEach(function (it) { first[it] = nodes[it].getBoundingClientRect(); });
+      items.forEach(function (it) { ul.appendChild(nodes[it]); });
+      if (window.MOTION_REDUCED) return;
+      items.forEach(function (it) {
+        var last = nodes[it].getBoundingClientRect();
+        var dx = first[it].left - last.left, dy = first[it].top - last.top;
+        if (dx || dy) nodes[it].animate([{ transform: "translate(" + dx + "px," + dy + "px)" }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(0.23,1,0.32,1)" });
+      });
+    }
+    bS.onclick = function () { items = items.slice().sort(function () { return Math.random() - 0.5; }); paint(); };
+    bA.onclick = function () { items = items.slice().sort(function (a, b) { return a.localeCompare(b); }); paint(); };
+    paint();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

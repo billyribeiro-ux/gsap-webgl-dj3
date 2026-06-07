@@ -1,0 +1,97 @@
+<!--lead: Some layouts can't be designed by hand — they have to be *simulated*. D3's force engine treats your data like charged particles on springs and lets physics find the arrangement. The result is organic, alive, and interactive.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    A <strong>force simulation</strong> is animation by physics rather than by keyframe.
+    You define forces — repulsion between nodes, springs along links, a pull toward the
+    center — and D3 iteratively nudges everything until it settles into a balanced
+    layout. Network graphs, mind maps, bubble charts and clustering visuals all come
+    from this one engine.
+  </p>
+
+  <h2>A living network — drag it</h2>
+  <p>
+    The nodes repel each other, the links pull them together, and the whole thing
+    breathes into balance. Grab any node and drag — the network reorganizes around your
+    hand in real time, then relaxes when you let go.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · drag the nodes</span>
+      <div id="force-demo" class="center" style="width:100%;height:100%"></div>
+    </div>
+    <!--code file="d3/D3Force.svelte" name="src/lib/D3Force.svelte"-->
+  </div>
+
+  <h2>The forces, and the tick</h2>
+  <ul>
+    <li><strong><code>forceManyBody()</code></strong> — every node pushes (negative
+      strength) or pulls (positive) every other. Negative repulsion spreads the graph
+      out so it's readable.</li>
+    <li><strong><code>forceLink()</code></strong> — turns your links into springs with a
+      target <code>distance</code>, holding connected nodes a comfortable gap apart.</li>
+    <li><strong><code>forceCenter()</code></strong> — a gentle gravity toward the middle
+      so the graph doesn't drift off-screen. Add <code>forceCollide()</code> to stop
+      nodes overlapping.</li>
+    <li><strong>The <code>'tick'</code> handler</strong> — runs every simulation step.
+      This is the animation loop: read each node's freshly computed <code>x/y</code> and
+      write it to the SVG. D3 owns the physics; you own the rendering.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Dragging = pinning.</strong> Setting a node's <code>fx</code>/<code>fy</code>
+      (fixed position) locks it under the pointer; the simulation flows around it. On
+      release, set them back to <code>null</code> and the node rejoins the physics. And
+      always <code>sim.stop()</code> on cleanup — a force simulation is a perpetual
+      animation loop, so an orphaned one quietly burns CPU forever. Our <code>$effect</code>
+      returns exactly that teardown.
+    </div>
+  </div>
+
+  <p>
+    This is also the bridge between D3 and Svelte at its finest: Svelte owns the
+    component lifecycle, D3 owns the physics and SVG. Feed the simulation data from
+    <code>$state</code> and it re-balances reactively — a live org chart, a dependency
+    graph, a social network that grows as data arrives.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("force-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.d3 === "undefined") { setTimeout(build, 120); return; }
+      var d3 = window.d3;
+      var width = 440, height = 260;
+      var nodes = Array.from({ length: 14 }, function (_, id) { return { id: id }; });
+      var links = nodes.slice(1).map(function (n, i) { return { source: n.id, target: Math.floor(Math.random() * (i + 1)) }; });
+      var svg = d3.create("svg").attr("viewBox", "0 0 " + width + " " + height).attr("role", "img").attr("aria-label", "Force graph");
+      svg.node().style.cssText = "width:min(460px,94%);height:auto";
+      mount.innerHTML = ""; mount.appendChild(svg.node());
+
+      var link = svg.selectAll("line").data(links).join("line").attr("stroke", "#2a3142").attr("stroke-width", 1.5);
+      var node = svg.selectAll("circle").data(nodes).join("circle").attr("r", 11).attr("fill", "#7c5cff").attr("stroke", "#19e3d6").attr("stroke-width", 1.5).style("cursor", "grab");
+
+      var sim = d3.forceSimulation(nodes)
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("link", d3.forceLink(links).id(function (d) { return d.id; }).distance(54))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide(16))
+        .on("tick", function () {
+          link.attr("x1", function (d) { return d.source.x; }).attr("y1", function (d) { return d.source.y; })
+            .attr("x2", function (d) { return d.target.x; }).attr("y2", function (d) { return d.target.y; });
+          node.attr("cx", function (d) { return d.x; }).attr("cy", function (d) { return d.y; });
+        });
+      if (window.MOTION_REDUCED) { sim.stop(); for (var k = 0; k < 200; k++) sim.tick(); sim.on("tick")(); }
+      node.call(d3.drag()
+        .on("start", function (e, d) { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag", function (e, d) { d.fx = e.x; d.fy = e.y; })
+        .on("end", function (e, d) { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+    }
+    build();
+  })();
+</script>

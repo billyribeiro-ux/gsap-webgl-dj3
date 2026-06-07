@@ -4,10 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Shape Morphing — MOTION</title>
-  <meta name="description" content="Shape Morphing" />
+  <meta name="description" content="Morphing is shape-shifting: one outline flowing into a completely different one. A hamburger becoming an X, a play turning into a pause, a square melting into a heart. MorphSVG makes the impossible math trivial." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/MorphSVGPlugin.min.js" defer></script>
 </head>
 <body data-slug="22-svg-morphing">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +29,147 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M2 · SVG &amp; Phosphor Icons</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Shape Morphing</h1>
-        
+        <p class="hero__lead" data-reveal="120">Morphing is shape-shifting: one outline flowing into a completely different one. A hamburger becoming an X, a play turning into a pause, a square melting into a heart. MorphSVG makes the impossible math trivial.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    Morphing animates the actual <em>shape</em> of an SVG path — interpolating its
+    points so one form smoothly becomes another. Done by hand it's brutal: two paths
+    rarely have the same number of points, so you have to match and tween them yourself.
+    GSAP's <strong>MorphSVG</strong> (now free) solves the matching for you, so a square
+    can become a triangle become a plus, fluidly.
+  </p>
+
+  <h2>Shape shifting</h2>
+  <p>
+    Hit <strong>Morph</strong> to flow the blob through square, triangle, diamond and
+    plus. Notice how the fill carries through the whole transformation — it's one path
+    the entire time, just changing its <code>d</code>.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · MorphSVG</span>
+      <div id="morph-demo" class="center stack" style="width:100%;height:100%;gap:0"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/MorphShapes.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/MorphShapes.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>Shape Morphing builds directly on <em>SVG &amp; Phosphor Icons</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin';
+
+  gsap.registerPlugin(MorphSVGPlugin);
+
+  // MorphSVG tweens one path's `d` into another's — even when they have totally
+  // different numbers of points. It figures out a sensible mapping, so a square
+  // can flow into a triangle into a plus. This is genuinely hard maths, made trivial.
+  const shapes = [
+    'M60,60 L196,60 L196,196 L60,196 Z', // square
+    'M128,48 L210,196 L46,196 Z', // triangle
+    'M128,44 L212,128 L128,212 L44,128 Z', // diamond
+    'M104,52 L152,52 L152,104 L204,104 L204,152 L152,152 L152,204 L104,204 L104,152 L52,152 L52,104 L104,104 Z' // plus
+  ];
+
+  let i = $state(0);
+  let pathEl: SVGPathElement | undefined = $state();
+
+  // Re-run whenever `i` changes: morph the live path toward the chosen shape.
+  $effect(() =&gt; {
+    if (!pathEl) return;
+    const tween = gsap.to(pathEl, { duration: 0.7, ease: 'power2.inOut', morphSVG: shapes[i] });
+    return () =&gt; tween.kill();
+  });
+
+  function next(): void {
+    i = (i + 1) % shapes.length;
+  }
+&lt;/script&gt;
+
+&lt;svg viewBox="0 0 256 256" class="canvas" aria-hidden="true"&gt;
+  &lt;defs&gt;
+    &lt;linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"&gt;
+      &lt;stop offset="0" stop-color="#7c5cff" /&gt;
+      &lt;stop offset="1" stop-color="#19e3d6" /&gt;
+    &lt;/linearGradient&gt;
+  &lt;/defs&gt;
+  &lt;path class="shape" bind:this={pathEl} d={shapes[0]} fill="url(#grad)" /&gt;
+&lt;/svg&gt;
+
+&lt;button class="morph-btn" onclick={next}&gt;Morph →&lt;/button&gt;
+
+&lt;style&gt;
+  .canvas { width: min(60%, 220px); aspect-ratio: 1; }
+  .morph-btn { margin-top: 1rem; padding: 0.55rem 1.4rem; border-radius: 999px; border: none; font-weight: 700; color: #0a0414; background: linear-gradient(135deg, #7c5cff, #19e3d6); cursor: pointer; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>How to morph well</h2>
+  <ul>
+    <li><strong>Target a shape or another path.</strong> <code>morphSVG: '#otherPath'</code>
+      morphs into another element's outline; <code>morphSVG: 'M…'</code> morphs into a
+      raw path string, as we do here.</li>
+    <li><strong>Control the mapping</strong> when the auto-result looks twisty.
+      <code>morphSVG: { shape: '#target', shapeIndex: 3 }</code> rotates which point maps
+      to which, and MorphSVG even has a <em>findShapeIndex</em> helper to pick the
+      cleanest one. <code>type: 'rotational'</code> often gives more natural results.</li>
+    <li><strong>Keep complexity comparable.</strong> Morphs between shapes of similar
+      detail read best. Wildly different point counts still work, but can look busy.</li>
+  </ul>
+
+  <div class="callout" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The everyday use is icon transitions.</strong> A menu icon morphing into a
+      close icon, a play into a pause, a heart filling in — these tiny, reversible morphs
+      are where the technique earns its keep in real products. Build them once as two
+      path states and toggle <code>morphSVG</code> between them. Reach for dramatic
+      blob-to-heart morphs sparingly, for hero moments.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("morph-demo");
+    if (!mount) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.MorphSVGPlugin === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap;
+      gsap.registerPlugin(window.MorphSVGPlugin);
+      var shapes = [
+        "M60,60 L196,60 L196,196 L60,196 Z",
+        "M128,48 L210,196 L46,196 Z",
+        "M128,44 L212,128 L128,212 L44,128 Z",
+        "M104,52 L152,52 L152,104 L204,104 L204,152 L152,152 L152,204 L104,204 L104,152 L52,152 L52,104 L104,104 Z"
+      ];
+      mount.style.flexDirection = "column";
+      mount.innerHTML =
+        '<svg viewBox="0 0 256 256" style="width:min(55%,200px);aspect-ratio:1" aria-hidden="true">' +
+        '<defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#19e3d6"/></linearGradient></defs>' +
+        '<path class="m-shape" d="' + shapes[0] + '" fill="url(#mg)"/></svg>';
+      var btn = document.createElement("button");
+      btn.textContent = "Morph →";
+      btn.style.cssText = "margin-top:1rem;padding:.55rem 1.4rem;border-radius:999px;border:none;font-weight:700;color:#0a0414;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer";
+      mount.appendChild(btn);
+      var path = mount.querySelector(".m-shape");
+      var i = 0;
+      btn.addEventListener("click", function () {
+        i = (i + 1) % shapes.length;
+        if (window.MOTION_REDUCED) { path.setAttribute("d", shapes[i]); return; }
+        gsap.to(path, { duration: 0.7, ease: "power2.inOut", morphSVG: shapes[i] });
+      });
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>

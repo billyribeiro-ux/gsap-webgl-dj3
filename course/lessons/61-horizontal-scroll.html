@@ -4,10 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Horizontal Scroll Storytelling — MOTION</title>
-  <meta name="description" content="Horizontal Scroll Storytelling" />
+  <meta name="description" content="Scroll down, move sideways. The horizontal-scroll gallery is one of the most recognizable "premium site" effects — and it's a single ScrollTrigger that turns vertical scroll into horizontal motion." />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="../assets/course.css" />
+  <script src="https://unpkg.com/gsap@3.15.0/dist/gsap.min.js" defer></script>
+  <script src="https://unpkg.com/gsap@3.15.0/dist/ScrollTrigger.min.js" defer></script>
 </head>
 <body data-slug="61-horizontal-scroll">
   <div class="progress-rail"><span></span></div>
@@ -27,28 +29,169 @@
       <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
         <p class="eyebrow" data-reveal>M6 · GSAP ScrollTrigger</p>
         <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Horizontal Scroll Storytelling</h1>
-        
+        <p class="hero__lead" data-reveal="120">Scroll down, move sideways. The horizontal-scroll gallery is one of the most recognizable "premium site" effects — and it's a single ScrollTrigger that turns vertical scroll into horizontal motion.</p>
       </header>
 
-      
       <div class="lesson__body prose">
-        <div class="callout callout--build" data-reveal>
-          <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,184,29.24,72,72,0,0,0,88.27,118.7L40,167a24,24,0,0,0,34,34l48.26-48.27A72,72,0,0,0,226.76,69ZM160,176a8,8,0,1,1,8-8A8,8,0,0,1,160,176Z"/></svg></span>
-          <div class="callout__body">
-            <strong>This lesson is part of the live curriculum and is being expanded.</strong>
-            The module's flagship lesson already ships with a full running demo and
-            copy-paste Svelte&nbsp;5 code — start there, then return here as this
-            page deepens. Everything plugs into the same platform with zero rework.
-          </div>
+  <p data-reveal>
+    You've seen it on Apple product pages and award-winning agency sites: a section
+    locks in place, and as you keep scrolling down, a row of panels slides
+    <em>sideways</em>. It feels exotic, but the mechanism is simple — pin the section so
+    it stays put, then map the scroll distance to a horizontal <code>x</code> tween of
+    the track.
+  </p>
+
+  <h2>Vertical in, horizontal out</h2>
+  <p>
+    Scroll inside the panel below. The section pins and the four cards travel left as
+    you scroll down, then release when the last one arrives. Scroll back up and it
+    rewinds.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · scroll ↓</span>
+      <div id="hs-scroller" style="position:relative;width:100%;height:360px;overflow-y:auto;overflow-x:hidden"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/HorizontalScroll.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/HorizontalScroll.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
         </div>
-        <h2>What you'll master here</h2>
-        <p>Horizontal Scroll Storytelling builds directly on <em>GSAP ScrollTrigger</em>.
-        You'll learn the technique, the timing decisions behind it, and exactly how
-        to recreate it inside your SvelteKit app with scoped styles and Phosphor icons.</p>
-        <p class="muted">Tip: every lesson is reachable from the
-        <a href="../index.html#curriculum">curriculum</a>, and you can jump with the
-        ← / → arrow keys.</p>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+  import type { Attachment } from 'svelte/attachments';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  const panels = ['Capture', 'Edit', 'Grade', 'Deliver'];
+
+  // The horizontal-scroll classic: pin a section, then convert the user's VERTICAL
+  // scroll into HORIZONTAL movement of a track. The page scrolls down; the gallery
+  // moves sideways. Used by Apple, agencies and product tours everywhere.
+  const horizontal: Attachment&lt;HTMLElement&gt; = (node) =&gt; {
+    const ctx = gsap.context(() =&gt; {
+      const track = node.querySelector('.track') as HTMLElement;
+      // How far the track must travel to reveal its last panel.
+      const distance = () =&gt; track.scrollWidth - node.offsetWidth;
+
+      gsap.to(track, {
+        x: () =&gt; -distance(),
+        ease: 'none',
+        scrollTrigger: {
+          trigger: node,
+          start: 'top top',
+          end: () =&gt; '+=' + distance(), // scroll distance == horizontal distance
+          pin: true,
+          scrub: 1,
+          anticipatePin: 1,
+          invalidateOnRefresh: true // recompute on resize
+        }
+      });
+    }, node);
+    return () =&gt; ctx.revert();
+  };
+&lt;/script&gt;
+
+&lt;section class="wrap" {@attach horizontal}&gt;
+  &lt;div class="track"&gt;
+    {#each panels as panel, i (panel)}
+      &lt;article class="panel" style="--i: {i}"&gt;
+        &lt;span class="num"&gt;0{i + 1}&lt;/span&gt;
+        &lt;h3&gt;{panel}&lt;/h3&gt;
+      &lt;/article&gt;
+    {/each}
+  &lt;/div&gt;
+&lt;/section&gt;
+
+&lt;style&gt;
+  .wrap { height: 100vh; overflow: hidden; }
+  .track { display: flex; height: 100%; width: max-content; }
+  .panel {
+    width: 80vw;
+    height: 100%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4vw;
+    border-right: 1px solid #1b2030;
+    background: linear-gradient(135deg, hsl(calc(220 + var(--i) * 30) 60% 18%), #05060a);
+  }
+  .num { font-family: ui-monospace, monospace; color: #19e3d6; font-size: 1rem; }
+  .panel h3 { font-size: clamp(2rem, 8vw, 5rem); color: #f4f6fb; letter-spacing: -0.03em; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
       </div>
+  </div>
+
+  <h2>The three moving parts</h2>
+  <ul>
+    <li><strong>Pin the section</strong> (<code>pin: true</code>) so it stays fixed in
+      the viewport while the scroll happens "through" it.</li>
+    <li><strong>Tween the track's <code>x</code></strong> from 0 to
+      <code>-(scrollWidth - viewportWidth)</code> — exactly far enough to bring the last
+      panel into view.</li>
+    <li><strong>Match the scroll length to the travel distance</strong> with
+      <code>end: '+=' + distance</code>, and <code>scrub</code> to tie progress to the
+      scrollbar. Now one pixel of vertical scroll equals one pixel of horizontal travel.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Make it responsive with functions.</strong> Notice <code>x: () =&gt;
+      -distance()</code> and <code>end: () =&gt; '+=' + distance()</code> are
+      <em>functions</em>, plus <code>invalidateOnRefresh: true</code>. On resize,
+      ScrollTrigger re-runs them and recomputes the travel — so the effect stays correct
+      on every screen. Hard-coding pixel values here is the #1 way horizontal scroll
+      breaks on mobile.
+    </div>
+  </div>
+
+  <p>
+    You can put <em>anything</em> in the panels — pin a 3D Threlte canvas and rotate a
+    product as it scrolls past, reveal text with SplitText on each panel, or stagger
+    cards within a panel as it enters. Horizontal scroll is a stage; everything else you've
+    learned performs on it.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var scroller = document.getElementById("hs-scroller");
+    if (!scroller) return;
+    function build() {
+      if (typeof window.gsap === "undefined" || typeof window.ScrollTrigger === "undefined") { setTimeout(build, 120); return; }
+      var gsap = window.gsap, ScrollTrigger = window.ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+      var labels = ["Capture", "Edit", "Grade", "Deliver"];
+      scroller.innerHTML =
+        '<div class="hs-wrap" style="height:360px;overflow:hidden">' +
+          '<div class="hs-track" style="display:flex;height:100%;width:max-content">' +
+            labels.map(function (l, i) {
+              return '<article style="width:74%;min-width:240px;height:100%;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;padding:1.5rem;border-right:1px solid #1b2030;background:linear-gradient(135deg,hsl(' + (220 + i * 30) + ' 60% 18%),#05060a)">' +
+                '<span style="font-family:ui-monospace,monospace;color:#19e3d6">0' + (i + 1) + '</span>' +
+                '<h3 style="font-size:clamp(1.8rem,7vw,3rem);color:#f4f6fb;letter-spacing:-.03em;margin:.3rem 0 0">' + l + "</h3></article>";
+            }).join("") +
+          "</div></div>" +
+          '<div style="height:520px;display:grid;place-items:center;color:#3a4254;font-size:.8rem">↑ scroll up to rewind</div>';
+
+      var wrap = scroller.querySelector(".hs-wrap");
+      var track = scroller.querySelector(".hs-track");
+      var distance = function () { return track.scrollWidth - wrap.offsetWidth; };
+      gsap.to(track, {
+        x: function () { return -distance(); }, ease: "none",
+        scrollTrigger: { scroller: scroller, trigger: wrap, start: "top top", end: function () { return "+=" + distance(); }, pin: true, scrub: 1, anticipatePin: 1, invalidateOnRefresh: true }
+      });
+      ScrollTrigger.refresh();
+    }
+    build();
+  })();
+</script>
+
 
       <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
     </article>
