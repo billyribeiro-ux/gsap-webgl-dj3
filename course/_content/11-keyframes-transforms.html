@@ -1,36 +1,6 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Keyframes, Transforms &amp; 3D Space — MOTION</title>
-  <meta name="description" content="Transitions handle A-to-B. Keyframes choreograph the whole journey — and once you step into the third dimension with transform, flat rectangles become objects with depth, weight and presence." />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-  <link rel="preconnect" href="https://unpkg.com" />
-  <link rel="stylesheet" href="../assets/course.css" />
-</head>
-<body data-slug="11-keyframes-transforms">
-  <div class="progress-rail"><span></span></div>
+<!--lead: Transitions handle A-to-B. Keyframes choreograph the whole journey — and once you step into the third dimension with transform, flat rectangles become objects with depth, weight and presence.-->
 
-  <header class="topbar">
-    <div class="container">
-      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
-      <nav>
-        <a href="../index.html#curriculum">Curriculum</a>
-        <a href="../index.html">Home</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="page">
-    <article class="lesson container">
-      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
-        <p class="eyebrow" data-reveal>M1 · CSS Animation</p>
-        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Keyframes, Transforms & 3D Space</h1>
-        <p class="hero__lead" data-reveal="120">Transitions handle A-to-B. Keyframes choreograph the whole journey — and once you step into the third dimension with transform, flat rectangles become objects with depth, weight and presence.</p>
-      </header>
-
-      <div class="lesson__body prose">
+<div class="lesson__body prose">
   <p data-reveal>
     A transition animates one change. A <strong>@keyframes</strong> animation lets you
     script every beat in between — 0%, 50%, 100% and anywhere else — and loop, delay
@@ -51,89 +21,7 @@
       <span class="stage__label">Live demo · hover / tap</span>
       <div id="flip-demo" class="center" style="width:100%;height:100%"></div>
     </div>
-    <div class="codepanel" data-file="src/lib/FlipCard.svelte">
-        <div class="codepanel__bar">
-          <span class="codepanel__dots"><i></i><i></i><i></i></span>
-          <span class="codepanel__file">src/lib/FlipCard.svelte</span>
-          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
-        </div>
-        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
-  // A 3D flip card — the canonical lesson in CSS 3D space. The magic is three
-  // properties: `perspective` (how deep the 3D is), `transform-style:
-  // preserve-3d` (let children live in real 3D), and `backface-visibility:
-  // hidden` (hide a face when it's turned away). Then we just rotateY.
-  let flipped = $state(false);
-&lt;/script&gt;
-
-&lt;button class="scene" class:flipped onclick={() =&gt; (flipped = !flipped)} aria-pressed={flipped}&gt;
-  &lt;div class="card"&gt;
-    &lt;div class="face face--front"&gt;
-      &lt;span class="label"&gt;Hover / tap&lt;/span&gt;
-      &lt;strong&gt;NEBULA&lt;/strong&gt;
-      &lt;span class="muted"&gt;Premium plan&lt;/span&gt;
-    &lt;/div&gt;
-    &lt;div class="face face--back"&gt;
-      &lt;strong&gt;$24&lt;small&gt;/mo&lt;/small&gt;&lt;/strong&gt;
-      &lt;span class="muted"&gt;Everything, unlocked&lt;/span&gt;
-    &lt;/div&gt;
-  &lt;/div&gt;
-&lt;/button&gt;
-
-&lt;style&gt;
-  .scene {
-    /* perspective makes far edges recede — the smaller the number, the more
-       dramatic the 3D. This lives on the parent, not the rotating element. */
-    perspective: 1000px;
-    width: 240px;
-    height: 320px;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-
-  .card {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform-style: preserve-3d; /* children inhabit real 3D space */
-    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .scene:hover .card,
-  .scene.flipped .card {
-    transform: rotateY(180deg);
-  }
-
-  .face {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    border-radius: 20px;
-    border: 1px solid #2a3142;
-    backface-visibility: hidden; /* hide whichever side faces away */
-    text-align: center;
-  }
-  .face--front { background: linear-gradient(160deg, #1b1340, #0a0c14); color: #f4f6fb; }
-  .face--back {
-    background: linear-gradient(160deg, #7c5cff, #19e3d6);
-    color: #05060a;
-    transform: rotateY(180deg); /* pre-rotate the back so it reads correctly */
-  }
-  strong { font-size: 2rem; letter-spacing: 0.04em; }
-  small { font-size: 0.9rem; opacity: 0.7; }
-  .label { font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: #19e3d6; }
-  .muted { font-size: 0.85rem; opacity: 0.7; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .card { transition: none; }
-  }
-&lt;/style&gt;</code></pre>
-        <div class="codepanel__editor"></div>
-      </div>
+    <!--code file="css/FlipCard.svelte" name="src/lib/FlipCard.svelte"-->
   </div>
 
   <h2>The three keys to CSS 3D</h2>
@@ -205,20 +93,3 @@
     });
   })();
 </script>
-
-
-      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
-    </article>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <span>MOTION · M1 CSS Animation</span>
-      <span class="muted">Use ← / → to move between lessons.</span>
-    </div>
-  </footer>
-
-  <script src="../assets/lessons.js"></script>
-  <script src="../assets/course.js" defer></script>
-</body>
-</html>

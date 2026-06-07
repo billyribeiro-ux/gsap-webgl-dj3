@@ -91,12 +91,9 @@
     const y = d3.scaleLinear().domain([0, max]).range([height, 0]);
     color.domain([0, max]);
 
-    const t = svg.transition().duration(750).ease(d3.easeCubicOut) as d3.Transition&lt;
-      SVGSVGElement,
-      unknown,
-      null,
-      undefined
-    &gt;;
+    // A standalone transition we hand to every selection so they share one
+    // timing/easing. (d3.transition() types cleanly across selection kinds.)
+    const t = d3.transition().duration(750).ease(d3.easeCubicOut);
 
     svg
       .selectAll&lt;SVGRectElement, number&gt;('rect')

@@ -1,36 +1,6 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>svelte/motion — Tween &amp; Spring — MOTION</title>
-  <meta name="description" content="Transitions animate the DOM. But sometimes you need to animate a *number* — a counter, a progress value, a position that follows your cursor. svelte/motion gives you two beautiful primitives: Tween and Spring." />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-  <link rel="preconnect" href="https://unpkg.com" />
-  <link rel="stylesheet" href="../assets/course.css" />
-</head>
-<body data-slug="31-tween-spring">
-  <div class="progress-rail"><span></span></div>
+<!--lead: Transitions animate the DOM. But sometimes you need to animate a *number* — a counter, a progress value, a position that follows your cursor. svelte/motion gives you two beautiful primitives: Tween and Spring.-->
 
-  <header class="topbar">
-    <div class="container">
-      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
-      <nav>
-        <a href="../index.html#curriculum">Curriculum</a>
-        <a href="../index.html">Home</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="page">
-    <article class="lesson container">
-      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
-        <p class="eyebrow" data-reveal>M3 · Svelte 5 Built-in Motion</p>
-        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">svelte/motion — Tween & Spring</h1>
-        <p class="hero__lead" data-reveal="120">Transitions animate the DOM. But sometimes you need to animate a *number* — a counter, a progress value, a position that follows your cursor. svelte/motion gives you two beautiful primitives: Tween and Spring.</p>
-      </header>
-
-      <div class="lesson__body prose">
+<div class="lesson__body prose">
   <p data-reveal>
     Svelte's <code>svelte/motion</code> module gives you two reactive wrappers for
     values that should change <em>smoothly</em> rather than instantly. You set a
@@ -58,83 +28,7 @@
       <span class="stage__label">Live demo · move your pointer</span>
       <div id="spring-demo" class="center stack" style="width:100%;height:100%;padding:1.25rem"></div>
     </div>
-    <div class="codepanel" data-file="src/lib/SpringFollow.svelte">
-        <div class="codepanel__bar">
-          <span class="codepanel__dots"><i></i><i></i><i></i></span>
-          <span class="codepanel__file">src/lib/SpringFollow.svelte</span>
-          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
-        </div>
-        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
-  import { Spring } from 'svelte/motion';
-
-  // svelte/motion's Spring (Svelte 5.8+) animates a value with real spring
-  // physics. You set `.target`; `.current` chases it, governed by stiffness and
-  // damping. It's perfect for anything that should feel physical and
-  // interruptible — drag, pointer-follow, springy toggles.
-  const coords = new Spring({ x: 0, y: 0 }, { stiffness: 0.1, damping: 0.4 });
-
-  let pad: HTMLDivElement | undefined = $state();
-
-  function move(e: PointerEvent): void {
-    if (!pad) return;
-    const r = pad.getBoundingClientRect();
-    // Just retarget — the spring handles the easing, and if the pointer keeps
-    // moving it smoothly redirects mid-flight instead of restarting.
-    coords.target = { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-&lt;/script&gt;
-
-&lt;div class="pad" bind:this={pad} onpointermove={move} role="application" aria-label="Spring follow area"&gt;
-  &lt;div
-    class="dot"
-    style="transform: translate(calc({coords.current.x}px - 50%), calc({coords.current.y}px - 50%))"
-  &gt;&lt;/div&gt;
-  &lt;span class="hint"&gt;move your pointer&lt;/span&gt;
-&lt;/div&gt;
-
-&lt;!-- Bind sliders straight to the spring's parameters and feel them change live. --&gt;
-&lt;div class="controls"&gt;
-  &lt;label&gt;
-    stiffness &lt;b&gt;{coords.stiffness.toFixed(2)}&lt;/b&gt;
-    &lt;input type="range" min="0.01" max="0.4" step="0.01" bind:value={coords.stiffness} /&gt;
-  &lt;/label&gt;
-  &lt;label&gt;
-    damping &lt;b&gt;{coords.damping.toFixed(2)}&lt;/b&gt;
-    &lt;input type="range" min="0.05" max="1" step="0.05" bind:value={coords.damping} /&gt;
-  &lt;/label&gt;
-&lt;/div&gt;
-
-&lt;style&gt;
-  .pad {
-    position: relative;
-    width: min(420px, 90%);
-    height: 240px;
-    border-radius: 16px;
-    background: #11141f;
-    border: 1px solid #1b2030;
-    overflow: hidden;
-    cursor: crosshair;
-    touch-action: none;
-  }
-  .dot {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #b79bff, #7c5cff 60%, #19e3d6);
-    box-shadow: 0 0 24px #7c5cffaa;
-    will-change: transform;
-  }
-  .hint { position: absolute; bottom: 0.6rem; left: 0.8rem; font-size: 0.72rem; color: #5b6478; pointer-events: none; }
-  .controls { display: flex; gap: 1.5rem; margin-top: 1.1rem; flex-wrap: wrap; }
-  label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.78rem; color: #8b93a7; }
-  b { color: #19e3d6; font-variant-numeric: tabular-nums; }
-  input { accent-color: #7c5cff; }
-&lt;/style&gt;</code></pre>
-        <div class="codepanel__editor"></div>
-      </div>
+    <!--code file="svelte/SpringFollow.svelte" name="src/lib/SpringFollow.svelte"-->
   </div>
 
   <h2>Why this beats hand-rolled animation</h2>
@@ -231,20 +125,3 @@
     frame();
   })();
 </script>
-
-
-      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
-    </article>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <span>MOTION · M3 Svelte 5 Built-in Motion</span>
-      <span class="muted">Use ← / → to move between lessons.</span>
-    </div>
-  </footer>
-
-  <script src="../assets/lessons.js"></script>
-  <script src="../assets/course.js" defer></script>
-</body>
-</html>

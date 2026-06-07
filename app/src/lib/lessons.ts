@@ -9,8 +9,11 @@ export type Lesson = {
 
 export const lessons: Lesson[] = [
   { slug: 'css-transitions', title: 'Magnetic CTA', module: 'CSS', blurb: 'Transitions + a pointer-tracking attachment.' },
+  { slug: 'keyframes-3d', title: '3D Flip Card', module: 'CSS', blurb: 'Keyframes + CSS 3D transforms.' },
+  { slug: 'scroll-driven', title: 'Scroll-Driven CSS', module: 'CSS', blurb: 'Native animation-timeline reveals.' },
   { slug: 'svg-draw', title: 'SVG Draw-On', module: 'SVG', blurb: 'Self-drawing strokes with dash offsets.' },
   { slug: 'svelte-motion', title: 'Transitions & FLIP', module: 'Svelte', blurb: "Svelte's built-in enter/leave + FLIP." },
+  { slug: 'spring', title: 'Spring & Tween', module: 'Svelte', blurb: 'Physics-based motion with svelte/motion.' },
   { slug: 'gsap', title: 'First Tween', module: 'GSAP', blurb: 'Staggered reveal with gsap.from.' },
   { slug: 'timeline', title: 'Sequenced Hero', module: 'GSAP', blurb: 'One timeline, perfect choreography.' },
   { slug: 'scrolltrigger', title: 'Scroll Story', module: 'GSAP', blurb: 'Pin, scrub and parallax on scroll.' },

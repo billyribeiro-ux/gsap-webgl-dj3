@@ -27,8 +27,8 @@ window.COURSE = {
       desc: "Native, GPU-accelerated motion with zero dependencies.",
       lessons: [
         { slug: "10-css-transitions", title: "Transitions & the Cinematic Hover", status: "live" },
-        { slug: "11-keyframes-transforms", title: "Keyframes, Transforms & 3D Space", status: "soon" },
-        { slug: "12-scroll-driven", title: "Scroll-Driven Animations (animation-timeline)", status: "soon" },
+        { slug: "11-keyframes-transforms", title: "Keyframes, Transforms & 3D Space", status: "live" },
+        { slug: "12-scroll-driven", title: "Scroll-Driven Animations (animation-timeline)", status: "live" },
         { slug: "13-view-transitions", title: "The View Transitions API", status: "soon" }
       ]
     },
@@ -48,7 +48,7 @@ window.COURSE = {
       desc: "Transitions, Tween, Spring and FLIP — batteries included.",
       lessons: [
         { slug: "30-svelte-transitions", title: "transition: / in: / out: / animate:", status: "live" },
-        { slug: "31-tween-spring", title: "svelte/motion — Tween & Spring", status: "soon" },
+        { slug: "31-tween-spring", title: "svelte/motion — Tween & Spring", status: "live" },
         { slug: "32-flip-lists", title: "FLIP & Crossfade", status: "soon" }
       ]
     },
