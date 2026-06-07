@@ -29,7 +29,8 @@ window.COURSE = {
         { slug: "10-css-transitions", title: "Transitions & the Cinematic Hover", status: "live" },
         { slug: "11-keyframes-transforms", title: "Keyframes, Transforms & 3D Space", status: "live" },
         { slug: "12-scroll-driven", title: "Scroll-Driven Animations (animation-timeline)", status: "live" },
-        { slug: "13-view-transitions", title: "The View Transitions API", status: "live" }
+        { slug: "13-view-transitions", title: "The View Transitions API", status: "live" },
+        { slug: "14-button-effects", title: "The Button Effects Cookbook", status: "live" }
       ]
     },
     {

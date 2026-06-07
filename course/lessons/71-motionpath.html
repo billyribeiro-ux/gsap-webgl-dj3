@@ -74,7 +74,7 @@
   const journey: Attachment&lt;SVGSVGElement&gt; = (node) =&gt; {
     const q = gsap.utils.selector(node);
     const ctx = gsap.context(() =&gt; {
-      const path = q('.route')[0] as SVGPathElement;
+      const path = q('.route')[0] as unknown as SVGPathElement;
       const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.8 });
 
       // 1. Draw the route in.

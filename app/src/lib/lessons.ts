@@ -14,6 +14,7 @@ export const lessons: Lesson[] = [
   { slug: 'keyframes-3d', title: '3D Flip Card', module: 'CSS', blurb: 'Keyframes + CSS 3D transforms.' },
   { slug: 'scroll-driven', title: 'Scroll-Driven CSS', module: 'CSS', blurb: 'Native animation-timeline reveals.' },
   { slug: 'view-transitions', title: 'View Transitions', module: 'CSS', blurb: 'Morph between states with the VT API.' },
+  { slug: 'buttons', title: 'Button Effects', module: 'CSS', blurb: 'Ten hover effects, simple to advanced.' },
   { slug: 'svg-draw', title: 'SVG Draw-On', module: 'SVG', blurb: 'Self-drawing strokes with dash offsets.' },
   { slug: 'svg-morph', title: 'Shape Morphing', module: 'SVG', blurb: 'MorphSVG flows one path into another.' },
   { slug: 'icons', title: 'Living Icons', module: 'SVG', blurb: 'Animated Phosphor micro-interactions.' },

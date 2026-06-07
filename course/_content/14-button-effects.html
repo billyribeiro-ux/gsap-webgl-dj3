@@ -1,0 +1,180 @@
+<!--lead: The button is the most-clicked element on the web and the easiest to make memorable. Here's a whole class of button effects — a cookbook from the simplest fill-on-hover to magnetic, particle-bursting showpieces.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    A great button rewards the pointer. It doesn't just change color — it
+    <em>responds</em>. In this lesson we build a small library of reusable button
+    effects, ordered from dead-simple to genuinely advanced, all sharing one base
+    class. Every one is in the live panel; hover them, click the last one, then copy
+    the whole set.
+  </p>
+
+  <h2>The cookbook — hover them all</h2>
+  <p>
+    Ten effects, one <code>.btn</code> base. The first is the classic fill-up; by the
+    end you've got a pointer-following magnetic button and one that bursts particles on
+    click.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · hover &amp; click</span>
+      <div id="btnfx-demo" class="center" style="width:100%;height:100%;padding:1.5rem"></div>
+    </div>
+    <!--code file="css/ButtonEffects.svelte" name="src/lib/ButtonEffects.svelte"-->
+  </div>
+
+  <h2>Simple → advanced, and how each works</h2>
+  <ol>
+    <li><strong>Fill up</strong> — a <code>::before</code> layer with
+      <code>transform: scaleY(0)</code> and <code>transform-origin: bottom</code>
+      scales to <code>1</code> on hover. Animating <em>transform</em> (not height) keeps
+      it GPU-smooth. The whole effect is six lines.</li>
+    <li><strong>Slide fill</strong> — identical idea, but <code>scaleX</code> from the
+      left. Change the origin, change the direction.</li>
+    <li><strong>Border draw</strong> — two pseudo-elements, each drawing one corner's
+      two sides by transitioning <code>width</code>/<code>height</code> from 0 to 100%
+      with staggered delays, so the outline appears to draw itself in.</li>
+    <li><strong>Shine</strong> — a skewed white gradient (<code>::before</code>) slides
+      across with <code>translateX</code>. The premium "gloss" you see on app-store
+      buttons.</li>
+    <li><strong>Label swap</strong> — two stacked spans in a grid cell; on hover the
+      first slides up and out while the second slides in. Great for "Hover me → Let's
+      go."</li>
+    <li><strong>Icon reveal</strong> — an arrow animates its <code>width</code> and
+      opacity from 0, nudging the label aside as it appears.</li>
+    <li><strong>Animated gradient</strong> — a wide gradient
+      (<code>background-size: 300%</code>) whose <code>background-position</code> drifts
+      on hover, so the colors flow.</li>
+    <li><strong>Neon glow</strong> — layered <code>box-shadow</code> plus
+      <code>text-shadow</code>, with a looping <code>@keyframes</code> pulse while
+      hovered. Cyberpunk in eight lines.</li>
+    <li><strong>Magnetic</strong> — now we need JavaScript. A Svelte
+      <code>{@attach}</code> tracks the pointer and writes <code>--mx</code>/<code>--my</code>
+      custom properties; a springy <code>transition</code> does the rest. The button
+      leans toward your cursor and springs back.</li>
+    <li><strong>Particle burst</strong> — the showpiece. On click, an attachment spawns
+      a ring of dot elements and animates them outward with the Web Animations API,
+      removing each when it finishes. Pure delight, and it cleans up after itself.</li>
+  </ol>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>One base class, many modifiers.</strong> Notice the architecture: a shared
+      <code>.btn</code> holds the padding, radius and <code>isolation: isolate</code> (so
+      <code>::before</code> layers stack predictably), and each <code>.fx-*</code> class
+      adds just its effect. That's how design systems ship a dozen button styles without
+      a dozen copies — and how you keep them consistent. Lift the whole
+      <code>&lt;style&gt;</code> block into your app and you have a button kit.
+    </div>
+  </div>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Effects are seasoning, not the meal.</strong> A particle burst on your
+      primary "Buy now" is delightful; ten different effects on one screen is chaos. Pick
+      <em>one</em> signature interaction for primary actions and keep secondary buttons
+      calm. And every effect here collapses gracefully under
+      <code>prefers-reduced-motion</code> — the buttons still work, they just stop moving.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mount = document.getElementById("btnfx-demo");
+    if (!mount) return;
+    if (!document.getElementById("btnfx-kf")) {
+      var st = document.createElement("style");
+      st.id = "btnfx-kf";
+      st.textContent = `
+        #btnfx-demo{--a:#7c5cff;--a2:#19e3d6;--a3:#ff5f9e;--ink:#05060a;--e:cubic-bezier(.16,1,.3,1);--es:cubic-bezier(.34,1.56,.64,1)}
+        .bfx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;width:min(560px,96%)}
+        .bfx{position:relative;isolation:isolate;padding:.9rem 1.5rem;border-radius:12px;border:1px solid var(--a);background:transparent;color:#f4f6fb;font-weight:650;font-size:.95rem;cursor:pointer;overflow:hidden;transition:color .4s var(--e)}
+        .bfx-fill::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,var(--a),var(--a2));transform:scaleY(0);transform-origin:bottom;transition:transform .45s var(--e)}
+        .bfx-fill:hover{color:var(--ink)}.bfx-fill:hover::before{transform:scaleY(1)}
+        .bfx-slide::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--a),var(--a3));transform:scaleX(0);transform-origin:left;transition:transform .45s var(--e)}
+        .bfx-slide:hover{color:var(--ink)}.bfx-slide:hover::before{transform:scaleX(1)}
+        .bfx-border{border-color:transparent}
+        .bfx-border::before,.bfx-border::after{content:'';position:absolute;width:0;height:0;border-radius:12px;transition:width .25s var(--e) .25s,height .25s var(--e)}
+        .bfx-border::before{top:0;left:0;border-top:2px solid var(--a2);border-left:2px solid var(--a2)}
+        .bfx-border::after{bottom:0;right:0;border-bottom:2px solid var(--a2);border-right:2px solid var(--a2)}
+        .bfx-border:hover::before,.bfx-border:hover::after{width:100%;height:100%}
+        .bfx-shine{background:#11141f;border-color:#2a3142}
+        .bfx-shine::before{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,#ffffff55 50%,transparent 70%);transform:translateX(-130%);transition:transform .7s var(--e)}
+        .bfx-shine:hover::before{transform:translateX(130%)}
+        .bfx-swap .sw{display:grid}.bfx-swap .sw span{grid-area:1/1;transition:transform .45s var(--e)}
+        .bfx-swap .sw span:nth-child(2){transform:translateY(160%)}
+        .bfx-swap:hover .sw span:nth-child(1){transform:translateY(-160%)}
+        .bfx-swap:hover .sw span:nth-child(2){transform:translateY(0)}
+        .bfx-icon .ico{display:inline-block;width:0;opacity:0;transform:translateX(-10px);transition:all .4s var(--e)}
+        .bfx-icon .lbl{display:inline-block;transition:transform .4s var(--e)}
+        .bfx-icon:hover .ico{width:1.1em;opacity:1;transform:translateX(0)}
+        .bfx-icon:hover .lbl{transform:translateX(4px)}
+        .bfx-grad{border:none;color:var(--ink);background:linear-gradient(120deg,var(--a),var(--a3),var(--a2),var(--a));background-size:300% 100%;background-position:0 50%;transition:background-position .7s var(--e),box-shadow .4s var(--e)}
+        .bfx-grad:hover{background-position:100% 50%;box-shadow:0 12px 34px -10px var(--a)}
+        .bfx-glow{border-color:var(--a2);color:var(--a2);transition:box-shadow .4s var(--e),color .4s,text-shadow .4s}
+        .bfx-glow:hover{color:#eafffd;text-shadow:0 0 10px var(--a2);box-shadow:0 0 6px var(--a2),0 0 22px var(--a2),inset 0 0 12px color-mix(in oklab,var(--a2) 30%,transparent);animation:bfx-pulse 1.4s ease-in-out infinite}
+        @keyframes bfx-pulse{50%{box-shadow:0 0 10px var(--a2),0 0 34px var(--a2),inset 0 0 18px color-mix(in oklab,var(--a2) 45%,transparent)}}
+        .bfx-mag{--mx:0px;--my:0px;border:none;color:var(--ink);background:linear-gradient(135deg,var(--a),var(--a2));transform:translate(var(--mx),var(--my));transition:transform .5s var(--es),box-shadow .4s var(--e)}
+        .bfx-mag:hover{box-shadow:0 16px 40px -12px var(--a)}
+        .bfx-mag:active{transform:translate(var(--mx),var(--my)) scale(.96)}
+        .bfx-burst{overflow:visible;border:none;color:var(--ink);background:linear-gradient(135deg,var(--a3),var(--a))}
+        .bfx-burst .particle{position:absolute;top:0;left:0;width:7px;height:7px;border-radius:50%;background:var(--a2);pointer-events:none;z-index:2}
+        @media (prefers-reduced-motion: reduce){.bfx,.bfx::before,.bfx::after{transition:none!important;animation:none!important}.bfx-mag{transform:none!important}}`;
+      document.head.appendChild(st);
+    }
+    mount.innerHTML =
+      '<div class="bfx-grid">' +
+        '<button class="bfx bfx-fill">Fill up</button>' +
+        '<button class="bfx bfx-slide">Slide fill</button>' +
+        '<button class="bfx bfx-border">Border draw</button>' +
+        '<button class="bfx bfx-shine">Shine</button>' +
+        '<button class="bfx bfx-swap"><span class="sw"><span>Hover me</span><span>Let’s go →</span></span></button>' +
+        '<button class="bfx bfx-icon"><span class="ico">→</span><span class="lbl">Continue</span></button>' +
+        '<button class="bfx bfx-grad">Gradient</button>' +
+        '<button class="bfx bfx-glow">Neon glow</button>' +
+        '<button class="bfx bfx-mag">Magnetic</button>' +
+        '<button class="bfx bfx-burst">Click me ✦</button>' +
+      "</div>";
+
+    var reduce = window.MOTION_REDUCED;
+
+    // Magnetic
+    var mag = mount.querySelector(".bfx-mag");
+    var raf = 0;
+    mag.addEventListener("pointermove", function (e) {
+      if (reduce) return;
+      var r = mag.getBoundingClientRect();
+      var x = (e.clientX - (r.left + r.width / 2)) * 0.4;
+      var y = (e.clientY - (r.top + r.height / 2)) * 0.4;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () { mag.style.setProperty("--mx", x + "px"); mag.style.setProperty("--my", y + "px"); });
+    });
+    mag.addEventListener("pointerleave", function () { cancelAnimationFrame(raf); mag.style.setProperty("--mx", "0px"); mag.style.setProperty("--my", "0px"); });
+
+    // Particle burst
+    var bst = mount.querySelector(".bfx-burst");
+    bst.addEventListener("click", function (e) {
+      if (reduce) return;
+      var r = bst.getBoundingClientRect();
+      var cx = e.clientX - r.left, cy = e.clientY - r.top, COUNT = 16;
+      for (let i = 0; i < COUNT; i++) {
+        const p = document.createElement("span");
+        p.className = "particle";
+        bst.appendChild(p);
+        const ang = (Math.PI * 2 * i) / COUNT + Math.random() * 0.4;
+        const d = 26 + Math.random() * 46;
+        const dx = Math.cos(ang) * d, dy = Math.sin(ang) * d;
+        const anim = p.animate(
+          [{ transform: "translate(" + cx + "px," + cy + "px) scale(1)", opacity: 1 },
+           { transform: "translate(" + (cx + dx) + "px," + (cy + dy) + "px) scale(0)", opacity: 0 }],
+          { duration: 620 + Math.random() * 320, easing: "cubic-bezier(.16,1,.3,1)" }
+        );
+        anim.onfinish = () => p.remove();
+      }
+    });
+  })();
+</script>
