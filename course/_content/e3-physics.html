@@ -1,0 +1,135 @@
+<!--lead: Real gravity, real collisions, real tumbling — a 3D physics playground in the browser. cannon-es runs the simulation; Three.js draws it. Drop a ball on the stack and watch it scatter.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Motion doesn't have to be hand-authored — sometimes you let <em>physics</em> author
+    it. A rigid-body engine computes gravity, collisions, friction and restitution for
+    you; you just describe the bodies and read back where they end up. Pair
+    <strong>cannon-es</strong> (the physics) with <strong>Three.js</strong> (the visuals)
+    and you have a playground that's different every time.
+  </p>
+
+  <h2>Click to drop · drag to orbit</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · cannon-es + Three.js</span>
+      <div id="phys-demo" style="position:relative;width:100%;height:360px"></div>
+    </div>
+    <!--code file="fx/ThreePhysics.svelte" name="src/lib/ThreePhysics.svelte"-->
+  </div>
+
+  <h2>Two worlds, kept in sync</h2>
+  <p>
+    The core idea: maintain a <em>physics</em> world and a <em>visual</em> world in
+    parallel, and copy from one to the other every frame.
+  </p>
+  <ul>
+    <li><strong>Describe bodies twice.</strong> Each cube is a <code>CANNON.Body</code>
+      (a mass + a collision shape) <em>and</em> a <code>THREE.Mesh</code> (the geometry you
+      see). The engine only cares about the shape and mass; the mesh only cares about
+      looking good.</li>
+    <li><strong>Step, then copy.</strong> Call <code>world.step()</code> to advance the
+      simulation by one tick, then for every pair do
+      <code>mesh.position.copy(body.position)</code> and the same for rotation. That single
+      copy is the entire bridge between physics and pixels.</li>
+    <li><strong>Interaction is just more bodies.</strong> A click raycasts to the floor and
+      spawns a heavy sphere above that point — the engine handles the rest, knocking the
+      stack realistically. Drag orbits the camera with OrbitControls.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Use a fixed timestep.</strong> Physics engines are only stable when stepped
+      at a constant rate — pass <code>world.step(1/60, deltaTime, maxSubSteps)</code> so
+      cannon-es internally catches up with sub-steps when a frame runs long, instead of
+      exploding. In a Svelte&nbsp;5 app the idiomatic route is
+      <strong>@threlte/rapier</strong>: you declare <code>&lt;RigidBody&gt;</code> and
+      <code>&lt;Collider&gt;</code> components and Threlte runs the world for you — the same
+      simulation, expressed declaratively. The principle is identical: step a world, sync
+      the transforms.
+    </div>
+  </div>
+
+  <p>
+    From here: stack dominoes, build a marble run, add springs and hinges (ragdolls,
+    vehicles), or throw objects with a drag-and-release. Physics turns a static scene into
+    a toy people can't stop playing with — and that playfulness is its own kind of
+    cinematic.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  import * as CANNON from "cannon-es";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+  const mount = document.getElementById("phys-demo");
+  if (mount) {
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "width:100%;height:100%;display:block;border-radius:12px;background:radial-gradient(80% 80% at 50% 30%,#11122a,#05060a);cursor:grab";
+    const btn = document.createElement("button");
+    btn.textContent = "↺ Reset stack";
+    btn.style.cssText = "position:absolute;top:1rem;right:1rem;padding:.5rem 1.1rem;border-radius:999px;border:1px solid #2a3142;background:rgba(5,6,10,.6);color:#d6dbe6;cursor:pointer;backdrop-filter:blur(6px)";
+    const hint = document.createElement("span");
+    hint.textContent = "click to drop a ball · drag to orbit";
+    hint.style.cssText = "position:absolute;bottom:.8rem;left:1rem;font-size:.75rem;color:#5b6478;pointer-events:none";
+    mount.append(canvas, btn, hint);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100); camera.position.set(6, 6, 9);
+    const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.target.set(0, 1.5, 0); controls.enablePan = false;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.6); dir.position.set(6, 12, 8); dir.castShadow = true; scene.add(dir);
+    const rim = new THREE.PointLight(0x19e3d6, 60); rim.position.set(-6, 3, -4); scene.add(rim);
+
+    const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) }); world.allowSleep = true;
+    const ground = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane() });
+    ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0); world.addBody(ground);
+    const groundMesh = new THREE.Mesh(new THREE.CircleGeometry(9, 48), new THREE.MeshStandardMaterial({ color: 0x0a0c14, roughness: 0.9 }));
+    groundMesh.rotation.x = -Math.PI / 2; groundMesh.receiveShadow = true; scene.add(groundMesh);
+
+    const pairs = [];
+    const palette = [0x7c5cff, 0x19e3d6, 0xff5f9e, 0xffce4a];
+    const boxGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+    function addBox(x, y, z, color) {
+      const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.45, 0.45, 0.45)), position: new CANNON.Vec3(x, y, z) });
+      world.addBody(body);
+      const mesh = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.35 }));
+      mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+      pairs.push({ mesh, body });
+    }
+    function clearAll() { for (const p of pairs) { world.removeBody(p.body); scene.remove(p.mesh); p.mesh.material.dispose(); } pairs.length = 0; }
+    function buildStack() { clearAll(); let c = 0; for (let y = 0; y < 4; y++) for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) addBox(x + (Math.random() - 0.5) * 0.04, 0.5 + y * 0.95, z, palette[c++ % palette.length]); }
+    buildStack();
+    btn.addEventListener("click", buildStack);
+
+    const ballGeo = new THREE.SphereGeometry(0.6, 24, 16);
+    const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); const hit = new THREE.Vector3();
+    canvas.addEventListener("click", (e) => {
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      if (!ray.ray.intersectPlane(plane, hit)) return;
+      const body = new CANNON.Body({ mass: 5, shape: new CANNON.Sphere(0.6), position: new CANNON.Vec3(hit.x, 9, hit.z) });
+      body.velocity.set(0, -6, 0); world.addBody(body);
+      const mesh = new THREE.Mesh(ballGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.6, roughness: 0.2 }));
+      mesh.castShadow = true; scene.add(mesh); pairs.push({ mesh, body });
+    });
+    function resize() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    let last = performance.now();
+    function tick() {
+      const now = performance.now();
+      world.step(1 / 60, Math.min((now - last) / 1000, 0.05), 4); last = now;
+      for (const p of pairs) { p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion); }
+      controls.update(); renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>

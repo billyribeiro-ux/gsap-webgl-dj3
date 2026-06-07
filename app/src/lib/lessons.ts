@@ -48,7 +48,11 @@ export const lessons: Lesson[] = [
   { slug: 'image-transition', title: 'Image Transition', module: 'Frontier', blurb: 'WebGL melt between two scenes.' },
   { slug: 'metaballs', title: 'Fluid Metaballs', module: 'Frontier', blurb: 'A GPU field that merges and splits.' },
   { slug: 'cursor', title: 'Magnetic Cursor', module: 'Frontier', blurb: 'Custom cursor with a magnetic field.' },
-  { slug: 'audio', title: 'Audio-Reactive', module: 'Frontier', blurb: 'A shader that dances to sound.' }
+  { slug: 'audio', title: 'Audio-Reactive', module: 'Frontier', blurb: 'A shader that dances to sound.' },
+  { slug: 'raymarch', title: 'Raymarched SDF', module: 'Bleeding Edge', blurb: 'A 3D world from one shader.' },
+  { slug: 'reaction-diffusion', title: 'Reaction-Diffusion', module: 'Bleeding Edge', blurb: 'A living GPU simulation.' },
+  { slug: 'flow-field', title: 'GPGPU Particles', module: 'Bleeding Edge', blurb: '16k particles in a flow field.' },
+  { slug: 'physics', title: 'Physics Playground', module: 'Bleeding Edge', blurb: 'Rigid bodies with cannon-es.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

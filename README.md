@@ -82,10 +82,13 @@ lesson is a route under `app/src/routes/` with Prev/Next navigation.
 
 M0 Foundations · M1 CSS Animation · M2 SVG & Phosphor · M3 Svelte 5 Motion ·
 M4 GSAP Core · M5 Timelines · M6 ScrollTrigger · M7 SplitText & SVG ·
-M8 D3 Motion · M9 Three.js · M10 Threlte · M11 Cinematic Capstones.
+M8 D3 Motion · M9 Three.js · M10 Threlte · M11 Cinematic Capstones ·
+M12 Advanced Cinematic FX (glitch, distortion, GPU particles, postprocessing) ·
+M13 The Frontier (image transitions, metaballs, magnetic cursor, audio‑reactive) ·
+M14 The Bleeding Edge (raymarched SDFs, GPU reaction‑diffusion, GPGPU particles, rigid‑body physics).
 
-Flagship lessons in every module ship with a live demo and copy‑paste code today;
-the remaining lessons are scaffolded on the same platform and expand without rework.
+**47 lessons across 14 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **45 runnable routes** in the reference app.
 
 ---
 

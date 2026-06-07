@@ -75,6 +75,10 @@ const LIBS = {
   "d1-metaballs": ["three"],
   "d2-custom-cursor": [],
   "d3-audio-reactive": ["three"],
+  "e0-raymarch": ["three"],
+  "e1-reaction-diffusion": ["three"],
+  "e2-flow-field": ["three"],
+  "e3-physics": ["three", "cannon"],
   "00-welcome": [],
   "01-principles-of-motion": []
 };
@@ -113,19 +117,20 @@ function expandCode(html) {
 function libTags(slug) {
   const libs = LIBS[slug] || [];
   const tags = [];
-  let importmap = "";
+  const imports = {};
   if (libs.includes("three")) {
-    importmap = `\n  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@${THREE_VERSION}/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@${THREE_VERSION}/examples/jsm/"
-    }
+    imports["three"] = `https://unpkg.com/three@${THREE_VERSION}/build/three.module.js`;
+    imports["three/addons/"] = `https://unpkg.com/three@${THREE_VERSION}/examples/jsm/`;
   }
-  </script>`;
+  if (libs.includes("cannon")) {
+    imports["cannon-es"] = "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js";
+  }
+  let importmap = "";
+  if (Object.keys(imports).length) {
+    importmap = `\n  <script type="importmap">\n  ${JSON.stringify({ imports }, null, 2).replace(/\n/g, "\n  ")}\n  </script>`;
   }
   for (const lib of libs) {
-    if (lib === "three") continue;
+    if (lib === "three" || lib === "cannon") continue;
     if (V[lib]) tags.push(`  <script src="${V[lib]}" defer></script>`);
   }
   return importmap + (tags.length ? "\n" + tags.join("\n") : "");

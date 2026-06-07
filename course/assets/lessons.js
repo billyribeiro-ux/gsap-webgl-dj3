@@ -150,6 +150,17 @@ window.COURSE = {
         { slug: "d2-custom-cursor", title: "Custom Cursor & Magnetic Field", status: "live" },
         { slug: "d3-audio-reactive", title: "Audio-Reactive Shader", status: "live" }
       ]
+    },
+    {
+      num: "M14",
+      title: "The Bleeding Edge",
+      desc: "Single-shader 3D, GPU simulations and rigid-body physics — the deepest end.",
+      lessons: [
+        { slug: "e0-raymarch", title: "Raymarched SDF Worlds", status: "live" },
+        { slug: "e1-reaction-diffusion", title: "GPU Reaction-Diffusion", status: "live" },
+        { slug: "e2-flow-field", title: "GPGPU Flow-Field Particles", status: "live" },
+        { slug: "e3-physics", title: "A 3D Physics Playground", status: "live" }
+      ]
     }
   ]
 };

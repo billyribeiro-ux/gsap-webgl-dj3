@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Raymarched SDF Worlds — MOTION</title>
+  <meta name="description" content="No models, no meshes — a whole 3D world rendered from a single fragment shader. Raymarching with signed distance fields is the demoscene's superpower, and it produces liquid-metal forms nothing else can." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-slug="e0-raymarch">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M14 · The Bleeding Edge</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">Raymarched SDF Worlds</h1>
+        <p class="hero__lead" data-reveal="120">No models, no meshes — a whole 3D world rendered from a single fragment shader. Raymarching with signed distance fields is the demoscene's superpower, and it produces liquid-metal forms nothing else can.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    Everything you've rendered so far used geometry — vertices and triangles.
+    <strong>Raymarching</strong> throws that away. The entire scene is described by a
+    math function (a <em>signed distance field</em>): give it a point in space and it
+    returns the distance to the nearest surface. To render, we shoot a ray from the
+    camera through each pixel and repeatedly step forward by that distance — when it's
+    near zero, we've hit something. It's how Shadertoy makes infinite worlds in a few
+    hundred characters.
+  </p>
+
+  <h2>Drag to orbit the blobs</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · single-shader 3D · drag</span>
+      <canvas id="rm-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <div class="codepanel" data-file="src/lib/Raymarch.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/Raymarch.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as THREE from 'three';
+  import type { Attachment } from 'svelte/attachments';
+
+  // Raymarching renders 3D from a single fragment shader — no geometry, no mesh.
+  // The whole scene is a "signed distance function" (SDF): given a point, it
+  // returns the distance to the nearest surface. We shoot a ray per pixel and
+  // step along it by that distance until we hit something. Smooth-union the
+  // shapes and they melt together like liquid metal.
+  const fragmentShader = /* glsl */ `
+    uniform float uTime;
+    uniform float uAspect;
+    uniform vec2 uMouse;
+    varying vec2 vUv;
+
+    float sdSphere(vec3 p, float r){ return length(p) - r; }
+    float sdTorus(vec3 p, vec2 t){ vec2 q = vec2(length(p.xz) - t.x, p.y); return length(q) - t.y; }
+    // polynomial smooth-min: blends two surfaces into one continuous skin
+    float smin(float a, float b, float k){ float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0); return mix(b, a, h) - k*h*(1.0-h); }
+
+    float map(vec3 p){
+      float d = sdSphere(p - vec3(sin(uTime)*0.9, 0.0, 0.0), 0.62);
+      d = smin(d, sdSphere(p - vec3(-sin(uTime*1.1)*0.9, cos(uTime*0.7)*0.7, 0.0), 0.52), 0.45);
+      d = smin(d, sdSphere(p - vec3(0.0, sin(uTime*0.9)*0.9, cos(uTime)*0.6), 0.42), 0.45);
+      d = smin(d, sdTorus(p, vec2(1.25, 0.22)), 0.55);
+      return d;
+    }
+    vec3 calcNormal(vec3 p){
+      vec2 e = vec2(0.0012, 0.0);
+      return normalize(vec3(
+        map(p+e.xyy) - map(p-e.xyy),
+        map(p+e.yxy) - map(p-e.yxy),
+        map(p+e.yyx) - map(p-e.yyx)));
+    }
+    mat3 rotY(float a){ float c=cos(a), s=sin(a); return mat3(c,0.,-s, 0.,1.,0., s,0.,c); }
+    mat3 rotX(float a){ float c=cos(a), s=sin(a); return mat3(1.,0.,0., 0.,c,-s, 0.,s,c); }
+
+    void main(){
+      vec2 uv = (vUv - 0.5); uv.x *= uAspect;
+      mat3 rot = rotY(uTime*0.2 + (uMouse.x-0.5)*3.0) * rotX((uMouse.y-0.5)*1.4);
+      vec3 ro = rot * vec3(0.0, 0.0, 4.2);
+      vec3 rd = rot * normalize(vec3(uv, -1.6));
+
+      float t = 0.0; vec3 p; float d = 1.0;
+      for (int i = 0; i &lt; 90; i++){
+        p = ro + rd * t;
+        d = map(p);
+        if (d &lt; 0.001 || t &gt; 20.0) break;
+        t += d;
+      }
+
+      vec3 col = vec3(0.02, 0.025, 0.04);
+      if (t &lt; 20.0){
+        vec3 n = calcNormal(p);
+        vec3 L = normalize(vec3(0.7, 0.9, 0.5));
+        float diff = max(dot(n, L), 0.0);
+        float spec = pow(max(dot(reflect(-L, n), -rd), 0.0), 40.0);
+        float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+        vec3 base = mix(vec3(0.486,0.360,1.0), vec3(0.098,0.890,0.839), n.y*0.5 + 0.5);
+        col = base * (0.15 + diff) + spec * 0.9 + fres * vec3(0.098,0.890,0.839) * 0.7;
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  const raymarch: Attachment&lt;HTMLCanvasElement&gt; = (canvas) =&gt; {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75)); // raymarching is fill-heavy
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = { uTime: { value: 0 }, uAspect: { value: 1 }, uMouse: { value: new THREE.Vector2(0.5, 0.5) } };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader
+    });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+
+    const onMove = (e: PointerEvent) =&gt; {
+      const r = canvas.getBoundingClientRect();
+      uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height);
+    };
+    canvas.addEventListener('pointermove', onMove);
+
+    const resize = () =&gt; {
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+      uniforms.uAspect.value = canvas.clientWidth / canvas.clientHeight;
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+
+    let raf = 0;
+    const clock = new THREE.Clock();
+    const tick = () =&gt; {
+      uniforms.uTime.value = clock.getElapsedTime();
+      renderer.render(scene, camera);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () =&gt; {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      canvas.removeEventListener('pointermove', onMove);
+      material.dispose();
+      renderer.dispose();
+    };
+  };
+&lt;/script&gt;
+
+&lt;canvas class="viewport" {@attach raymarch}&gt;&lt;/canvas&gt;
+
+&lt;style&gt;
+  .viewport { width: 100%; height: 100%; min-height: 320px; display: block; border-radius: 12px; cursor: grab; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>Why this is magic</h2>
+  <ul>
+    <li><strong>The SDF is the scene.</strong> <code>sdSphere</code> returns
+      <code>length(p) - radius</code>; <code>sdTorus</code> a ring; and you combine them
+      with <code>min()</code>. Swap <code>min</code> for <code>smin</code> (smooth-min)
+      and surfaces <em>fuse</em> like mercury — that organic melting is impossible with
+      regular polygon meshes.</li>
+    <li><strong>Normals come from the gradient.</strong> There are no vertex normals, so
+      we sample the SDF four times around the hit point and difference them. That gradient
+      <em>is</em> the surface normal — instant lighting for any shape, no matter how it
+      morphs.</li>
+    <li><strong>The march is the render.</strong> A loop of ~90 steps per pixel finds the
+      surface. Because it's all distance math, you get soft shadows, ambient occlusion,
+      reflections and infinite repetition almost for free — just more lines in the same
+      shader.</li>
+  </ul>
+
+  <div class="callout callout--warn" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24,24,0,0,0-42.7,0L19.2,188.09a23.55,23.55,0,0,0,0,23.71A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.2A23.55,23.55,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Raymarching is fill-rate hungry.</strong> Every pixel runs the whole march
+      loop, so cost scales with resolution and step count — full-screen 4K raymarching can
+      melt a laptop. Cap the device-pixel-ratio (we use 1.75), keep the step count as low
+      as the scene allows, and add an early-out when the ray escapes. It's a different
+      performance model from mesh rendering: pixels are expensive, "geometry" is free.
+    </div>
+  </div>
+
+  <p>
+    This is the gateway to volumetric clouds, fractals (the Mandelbulb is one SDF),
+    glowing energy fields and morphing liquid logos — visuals that simply don't exist in
+    the triangle world. Learn to think in distance fields and a whole dimension of the
+    medium opens up.
+  </p>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("rm-canvas");
+  if (canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const uniforms = { uTime: { value: 0 }, uAspect: { value: 1 }, uMouse: { value: new THREE.Vector2(0.5, 0.5) } };
+    const frag =
+      "uniform float uTime; uniform float uAspect; uniform vec2 uMouse; varying vec2 vUv;" +
+      "float sdSphere(vec3 p,float r){return length(p)-r;}" +
+      "float sdTorus(vec3 p,vec2 t){vec2 q=vec2(length(p.xz)-t.x,p.y);return length(q)-t.y;}" +
+      "float smin(float a,float b,float k){float h=clamp(0.5+0.5*(b-a)/k,0.0,1.0);return mix(b,a,h)-k*h*(1.0-h);}" +
+      "float map(vec3 p){float d=sdSphere(p-vec3(sin(uTime)*0.9,0.0,0.0),0.62);d=smin(d,sdSphere(p-vec3(-sin(uTime*1.1)*0.9,cos(uTime*0.7)*0.7,0.0),0.52),0.45);d=smin(d,sdSphere(p-vec3(0.0,sin(uTime*0.9)*0.9,cos(uTime)*0.6),0.42),0.45);d=smin(d,sdTorus(p,vec2(1.25,0.22)),0.55);return d;}" +
+      "vec3 calcN(vec3 p){vec2 e=vec2(0.0012,0.0);return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));}" +
+      "mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0.,-s,0.,1.,0.,s,0.,c);}" +
+      "mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1.,0.,0.,0.,c,-s,0.,s,c);}" +
+      "void main(){vec2 uv=(vUv-0.5);uv.x*=uAspect;mat3 rot=rotY(uTime*0.2+(uMouse.x-0.5)*3.0)*rotX((uMouse.y-0.5)*1.4);vec3 ro=rot*vec3(0.0,0.0,4.2);vec3 rd=rot*normalize(vec3(uv,-1.6));float t=0.0;vec3 p;float d=1.0;for(int i=0;i<90;i++){p=ro+rd*t;d=map(p);if(d<0.001||t>20.0)break;t+=d;}vec3 col=vec3(0.02,0.025,0.04);if(t<20.0){vec3 n=calcN(p);vec3 L=normalize(vec3(0.7,0.9,0.5));float diff=max(dot(n,L),0.0);float spec=pow(max(dot(reflect(-L,n),-rd),0.0),40.0);float fres=pow(1.0-max(dot(n,-rd),0.0),3.0);vec3 base=mix(vec3(0.486,0.36,1.0),vec3(0.098,0.89,0.839),n.y*0.5+0.5);col=base*(0.15+diff)+spec*0.9+fres*vec3(0.098,0.89,0.839)*0.7;}gl_FragColor=vec4(col,1.0);}";
+    const material = new THREE.ShaderMaterial({ uniforms, vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }", fragmentShader: frag });
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+    canvas.addEventListener("pointermove", (e) => { const r = canvas.getBoundingClientRect(); uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height); });
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); uniforms.uAspect.value = canvas.clientWidth / canvas.clientHeight; }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() { uniforms.uTime.value = reduce ? 0.5 : clock.getElapsedTime(); renderer.render(scene, camera); requestAnimationFrame(tick); }
+    tick();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M14 The Bleeding Edge</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

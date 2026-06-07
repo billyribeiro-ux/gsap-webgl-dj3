@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPU Reaction-Diffusion — MOTION</title>
+  <meta name="description" content="Two chemicals, a few simple rules, and life-like patterns emerge — spots, stripes, coral, mitosis. Reaction-diffusion is a real GPU simulation with feedback, and the same ping-pong technique powers fluid solvers." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-slug="e1-reaction-diffusion">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M14 · The Bleeding Edge</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">GPU Reaction-Diffusion</h1>
+        <p class="hero__lead" data-reveal="120">Two chemicals, a few simple rules, and life-like patterns emerge — spots, stripes, coral, mitosis. Reaction-diffusion is a real GPU simulation with feedback, and the same ping-pong technique powers fluid solvers.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    This is a genuine <strong>simulation</strong>, not a canned animation. Two virtual
+    chemicals — call them A and B — diffuse across a grid and react: B converts A into
+    more B, while A is fed in and B decays. From those two competing forces, astonishingly
+    organic patterns self-organize. The maths (the <em>Gray–Scott</em> model) fits in a
+    few lines; the magic is the <strong>feedback loop</strong>.
+  </p>
+
+  <h2>Drag to seed it</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · GPU simulation · drag</span>
+      <canvas id="rd-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <div class="codepanel" data-file="src/lib/ReactionDiffusion.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/ReactionDiffusion.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as THREE from 'three';
+  import type { Attachment } from 'svelte/attachments';
+
+  // A real GPU simulation. Two chemicals A and B live in the RG channels of a
+  // texture; each frame a shader reads every texel's neighbours (a Laplacian) and
+  // applies the Gray–Scott reaction-diffusion equations, writing the result to a
+  // SECOND texture. We swap them and repeat — "ping-pong" feedback, the same
+  // technique fluid solvers use. The result: organic, coral-like patterns that
+  // grow and divide. Drag to seed more.
+  const SIZE = 256;
+
+  const quadVert = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+  const initFrag = /* glsl */ `
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    void main(){
+      float B = 0.0;
+      if (distance(vUv, vec2(0.5)) &lt; 0.06) B = 0.9;
+      if (hash(floor(vUv * 40.0)) &gt; 0.97) B = 0.9;
+      gl_FragColor = vec4(1.0, B, 0.0, 1.0); // A=1, B=seed
+    }
+  `;
+
+  const simFrag = /* glsl */ `
+    uniform sampler2D uPrev;
+    uniform float uTexel;
+    uniform vec2 uMouse;
+    uniform float uDown;
+    varying vec2 vUv;
+    void main(){
+      vec2 c = texture2D(uPrev, vUv).xy;
+      vec2 lap = -c;
+      lap += texture2D(uPrev, vUv + vec2(uTexel, 0.0)).xy * 0.2;
+      lap += texture2D(uPrev, vUv - vec2(uTexel, 0.0)).xy * 0.2;
+      lap += texture2D(uPrev, vUv + vec2(0.0, uTexel)).xy * 0.2;
+      lap += texture2D(uPrev, vUv - vec2(0.0, uTexel)).xy * 0.2;
+      lap += texture2D(uPrev, vUv + vec2(uTexel, uTexel)).xy * 0.05;
+      lap += texture2D(uPrev, vUv + vec2(-uTexel, uTexel)).xy * 0.05;
+      lap += texture2D(uPrev, vUv + vec2(uTexel, -uTexel)).xy * 0.05;
+      lap += texture2D(uPrev, vUv + vec2(-uTexel, -uTexel)).xy * 0.05;
+
+      float A = c.x, B = c.y;
+      float reaction = A * B * B;
+      float f = 0.055, k = 0.062;
+      float nA = A + (1.0 * lap.x - reaction + f * (1.0 - A));
+      float nB = B + (0.5 * lap.y + reaction - (k + f) * B);
+
+      if (uDown &gt; 0.5 &amp;&amp; distance(vUv, uMouse) &lt; 0.03) nB = 0.9;
+      gl_FragColor = vec4(clamp(nA, 0.0, 1.0), clamp(nB, 0.0, 1.0), 0.0, 1.0);
+    }
+  `;
+
+  const displayFrag = /* glsl */ `
+    uniform sampler2D uTex;
+    varying vec2 vUv;
+    void main(){
+      float b = texture2D(uTex, vUv).y;
+      vec3 col = mix(vec3(0.02,0.025,0.05), vec3(0.486,0.360,1.0), smoothstep(0.0, 0.25, b));
+      col = mix(col, vec3(0.098,0.890,0.839), smoothstep(0.25, 0.45, b));
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  const sim: Attachment&lt;HTMLCanvasElement&gt; = (canvas) =&gt; {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setPixelRatio(1);
+
+    const opts: THREE.RenderTargetOptions = {
+      type: THREE.HalfFloatType,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      depthBuffer: false
+    };
+    let read = new THREE.WebGLRenderTarget(SIZE, SIZE, opts);
+    let write = new THREE.WebGLRenderTarget(SIZE, SIZE, opts);
+
+    const fsScene = new THREE.Scene();
+    const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+    fsScene.add(quad);
+
+    const initMat = new THREE.ShaderMaterial({ vertexShader: quadVert, fragmentShader: initFrag });
+    const simMat = new THREE.ShaderMaterial({
+      vertexShader: quadVert,
+      fragmentShader: simFrag,
+      uniforms: { uPrev: { value: null as THREE.Texture | null }, uTexel: { value: 1 / SIZE }, uMouse: { value: new THREE.Vector2(-1, -1) }, uDown: { value: 0 } }
+    });
+    const dispMat = new THREE.ShaderMaterial({ vertexShader: quadVert, fragmentShader: displayFrag, uniforms: { uTex: { value: null as THREE.Texture | null } } });
+
+    // Seed the initial state.
+    quad.material = initMat;
+    renderer.setRenderTarget(read);
+    renderer.render(fsScene, fsCam);
+
+    let down = 0;
+    const onMove = (e: PointerEvent) =&gt; {
+      const r = canvas.getBoundingClientRect();
+      simMat.uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height);
+    };
+    const onDown = () =&gt; (down = 1);
+    const onUp = () =&gt; (down = 0);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointerleave', onUp);
+
+    const resize = () =&gt; renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+
+    let raf = 0;
+    const tick = () =&gt; {
+      // 8 simulation steps per displayed frame.
+      for (let i = 0; i &lt; 8; i++) {
+        simMat.uniforms.uPrev.value = read.texture;
+        simMat.uniforms.uDown.value = down;
+        quad.material = simMat;
+        renderer.setRenderTarget(write);
+        renderer.render(fsScene, fsCam);
+        const t = read; read = write; write = t;
+      }
+      dispMat.uniforms.uTex.value = read.texture;
+      quad.material = dispMat;
+      renderer.setRenderTarget(null);
+      renderer.render(fsScene, fsCam);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () =&gt; {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointerleave', onUp);
+      read.dispose();
+      write.dispose();
+      initMat.dispose();
+      simMat.dispose();
+      dispMat.dispose();
+      quad.geometry.dispose();
+      renderer.dispose();
+    };
+  };
+&lt;/script&gt;
+
+&lt;canvas class="viewport" {@attach sim}&gt;&lt;/canvas&gt;
+
+&lt;style&gt;
+  .viewport { width: 100%; height: 100%; min-height: 320px; display: block; border-radius: 12px; cursor: crosshair; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>Ping-pong: how GPU simulations remember</h2>
+  <p>
+    A shader can't read and write the same texture at once. So we keep <em>two</em>
+    textures and bounce between them: read the current state from texture&nbsp;A, compute
+    the next state, write it to texture&nbsp;B — then swap and repeat. That "ping-pong" is
+    the universal pattern for any simulation with feedback on the GPU.
+  </p>
+  <ul>
+    <li><strong>State lives in colour.</strong> Chemical A is stored in the red channel,
+      B in green, for every texel. The grid <em>is</em> a texture. (We use half-float
+      textures so the values keep enough precision.)</li>
+    <li><strong>The Laplacian reads neighbours.</strong> Each step samples the eight
+      surrounding texels with weights — that's diffusion, the tendency to even out. Add the
+      reaction term <code>A·B²</code> and the feed/kill rates, and you have the full update
+      in one shader.</li>
+    <li><strong>Many steps per frame.</strong> We run the sim eight times before drawing
+      once, so the pattern evolves fast and smoothly. The display pass is a separate, dumb
+      shader that just maps chemical B to a colour ramp.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Tiny parameter changes, totally different life.</strong> The feed rate
+      <code>f</code> and kill rate <code>k</code> are the whole personality of the sim.
+      <code>f=0.055, k=0.062</code> gives the coral/mitosis look here; nudge them and you
+      get solitons, stripes (think zebra and fingerprints — this model literally explains
+      animal coats), or self-replicating spots. This exact ping-pong machinery, with
+      different equations, is how the next lesson advects particles and how full fluid
+      solvers compute pressure. Master it once.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("rd-canvas");
+  if (canvas) {
+    const SIZE = 256;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setPixelRatio(1);
+    const qv = "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }";
+    const initF = "varying vec2 vUv; float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);} void main(){ float B=0.0; if(distance(vUv,vec2(0.5))<0.06)B=0.9; if(hash(floor(vUv*40.0))>0.97)B=0.9; gl_FragColor=vec4(1.0,B,0.0,1.0); }";
+    const simF = "uniform sampler2D uPrev; uniform float uTexel; uniform vec2 uMouse; uniform float uDown; varying vec2 vUv; void main(){ vec2 c=texture2D(uPrev,vUv).xy; vec2 lap=-c; lap+=texture2D(uPrev,vUv+vec2(uTexel,0.0)).xy*0.2; lap+=texture2D(uPrev,vUv-vec2(uTexel,0.0)).xy*0.2; lap+=texture2D(uPrev,vUv+vec2(0.0,uTexel)).xy*0.2; lap+=texture2D(uPrev,vUv-vec2(0.0,uTexel)).xy*0.2; lap+=texture2D(uPrev,vUv+vec2(uTexel,uTexel)).xy*0.05; lap+=texture2D(uPrev,vUv+vec2(-uTexel,uTexel)).xy*0.05; lap+=texture2D(uPrev,vUv+vec2(uTexel,-uTexel)).xy*0.05; lap+=texture2D(uPrev,vUv+vec2(-uTexel,-uTexel)).xy*0.05; float A=c.x,B=c.y; float reaction=A*B*B; float f=0.055,k=0.062; float nA=A+(1.0*lap.x-reaction+f*(1.0-A)); float nB=B+(0.5*lap.y+reaction-(k+f)*B); if(uDown>0.5&&distance(vUv,uMouse)<0.03)nB=0.9; gl_FragColor=vec4(clamp(nA,0.0,1.0),clamp(nB,0.0,1.0),0.0,1.0); }";
+    const dispF = "uniform sampler2D uTex; varying vec2 vUv; void main(){ float b=texture2D(uTex,vUv).y; vec3 col=mix(vec3(0.02,0.025,0.05),vec3(0.486,0.36,1.0),smoothstep(0.0,0.25,b)); col=mix(col,vec3(0.098,0.89,0.839),smoothstep(0.25,0.45,b)); gl_FragColor=vec4(col,1.0); }";
+    const opts = { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false };
+    let read = new THREE.WebGLRenderTarget(SIZE, SIZE, opts);
+    let write = new THREE.WebGLRenderTarget(SIZE, SIZE, opts);
+    const fsScene = new THREE.Scene();
+    const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+    fsScene.add(quad);
+    const initMat = new THREE.ShaderMaterial({ vertexShader: qv, fragmentShader: initF });
+    const simMat = new THREE.ShaderMaterial({ vertexShader: qv, fragmentShader: simF, uniforms: { uPrev: { value: null }, uTexel: { value: 1 / SIZE }, uMouse: { value: new THREE.Vector2(-1, -1) }, uDown: { value: 0 } } });
+    const dispMat = new THREE.ShaderMaterial({ vertexShader: qv, fragmentShader: dispF, uniforms: { uTex: { value: null } } });
+    quad.material = initMat; renderer.setRenderTarget(read); renderer.render(fsScene, fsCam);
+    let down = 0;
+    canvas.addEventListener("pointermove", (e) => { const r = canvas.getBoundingClientRect(); simMat.uniforms.uMouse.value.set((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height); });
+    canvas.addEventListener("pointerdown", () => (down = 1));
+    window.addEventListener("pointerup", () => (down = 0));
+    canvas.addEventListener("pointerleave", () => (down = 0));
+    function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    function tick() {
+      for (let i = 0; i < 8; i++) { simMat.uniforms.uPrev.value = read.texture; simMat.uniforms.uDown.value = down; quad.material = simMat; renderer.setRenderTarget(write); renderer.render(fsScene, fsCam); const t = read; read = write; write = t; }
+      dispMat.uniforms.uTex.value = read.texture; quad.material = dispMat; renderer.setRenderTarget(null); renderer.render(fsScene, fsCam);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M14 The Bleeding Edge</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>
