@@ -1,0 +1,114 @@
+<!--lead: Ink swirling through water — the most mesmerizing effect in real-time graphics. It's a genuine fluid simulation (Jos Stam's "stable fluids"), solving the Navier-Stokes equations every frame as a chain of WebGPU compute passes.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    This is the summit. A real fluid solver runs the same physics as a wind tunnel — the
+    <strong>Navier-Stokes equations</strong> — discretized onto a grid and stepped each
+    frame. Jos Stam's "stable fluids" method makes it tractable in real time, and WebGPU's
+    compute passes map onto it perfectly: one pass per stage of the solve. Move your cursor
+    to push the fluid; let go and watch it billow on its own.
+  </p>
+
+  <h2>Stir the fluid</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPU fluid · drag to stir</span>
+      <canvas id="fluid-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="fx/FluidSim.svelte" name="src/lib/FluidSim.svelte"-->
+  </div>
+
+  <h2>The solve, pass by pass</h2>
+  <ol>
+    <li><strong>Advect</strong> — move the velocity field through itself. For each cell we
+      trace <em>backwards</em> along the velocity and bilinearly sample where the fluid came
+      from. This is the "carry the fluid along" step.</li>
+    <li><strong>Add forces</strong> — your cursor injects velocity (and coloured dye) with a
+      soft Gaussian splat.</li>
+    <li><strong>Project (the hard part)</strong> — real fluids are <em>incompressible</em>:
+      nothing piles up. We compute the field's <strong>divergence</strong>, solve a Poisson
+      equation for pressure with ~20 <strong>Jacobi iterations</strong> (each a compute pass
+      reading its neighbours), then <strong>subtract the pressure gradient</strong> to remove
+      all divergence. This projection is what makes fluid swirl instead of just smear.</li>
+    <li><strong>Advect dye</strong> — carry the colour through the now divergence-free
+      velocity field, and render it with a tone-map.</li>
+  </ol>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Pressure projection is the soul of fluid.</strong> Skip it and you get smoke
+      that smears lifelessly; include it and the fluid curls, eddies and conserves momentum
+      like the real thing. It's an iterative solve — more Jacobi iterations = more accurate
+      incompressibility = more cost — so you trade quality for speed. Everything here is
+      grid-based compute: a dozen passes ping-ponging a handful of buffers. You've now built,
+      from scratch, the effect that anchors the most awarded sites on the web — and you did it
+      on the GPU, in WGSL. That's the whole journey. Nothing is out of reach now.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("fluid-canvas");
+    if (!canvas) return;
+    function fallback(msg) { var c = canvas.getContext("2d"); if (!c) return; canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; c.fillStyle = "#05060a"; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = "#8b93a7"; c.font = "14px ui-monospace,monospace"; c.textAlign = "center"; c.fillText(msg, canvas.width / 2, canvas.height / 2); }
+    if (!navigator.gpu) { fallback("WebGPU is not available in this browser."); return; }
+    var N = 160, CELLS = N * N, ITER = 20;
+    var HEAD = "struct U { n: u32, dt: f32, mx: f32, my: f32, mdx: f32, mdy: f32, mdown: f32, _p: f32 }; fn ix(x: i32, y: i32, n: i32) -> u32 { return u32(clamp(y,0,n-1)*n+clamp(x,0,n-1)); }";
+    function pass(b, body) { return HEAD + b + " @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3u) { let i=gid.x; if(i>=u.n*u.n){return;} let n=i32(u.n); let x=i32(i)%n; let y=i32(i)/n; let pos=vec2f(f32(x)+0.5,f32(y)+0.5); " + body + " }"; }
+    var advV = pass("@group(0)@binding(0) var<storage,read> fin: array<vec2f>; @group(0)@binding(1) var<storage,read_write> fout: array<vec2f>; @group(0)@binding(2) var<uniform> u: U; fn bil(p: vec2f)->vec2f{ let nn=f32(u.n); let cx=clamp(p.x,0.5,nn-0.5)-0.5; let cy=clamp(p.y,0.5,nn-0.5)-0.5; let x0=i32(floor(cx)); let y0=i32(floor(cy)); let fx=cx-f32(x0); let fy=cy-f32(y0); let n=i32(u.n); let a=fin[ix(x0,y0,n)]; let b=fin[ix(x0+1,y0,n)]; let c=fin[ix(x0,y0+1,n)]; let d=fin[ix(x0+1,y0+1,n)]; return mix(mix(a,b,fx),mix(c,d,fx),fy); }", "let src=pos-fin[i]*u.dt; fout[i]=bil(src)*0.999;");
+    var splV = pass("@group(0)@binding(0) var<storage,read> fin: array<vec2f>; @group(0)@binding(1) var<storage,read_write> fout: array<vec2f>; @group(0)@binding(2) var<uniform> u: U;", "var v=fin[i]; if(u.mdown>0.5){ let d=pos-vec2f(u.mx,u.my); let g=exp(-dot(d,d)/60.0); v=v+vec2f(u.mdx,u.mdy)*g; } fout[i]=v;");
+    var dvg = pass("@group(0)@binding(0) var<storage,read> vel: array<vec2f>; @group(0)@binding(1) var<storage,read_write> dout: array<f32>; @group(0)@binding(2) var<uniform> u: U;", "let l=vel[ix(x-1,y,n)].x; let r=vel[ix(x+1,y,n)].x; let b=vel[ix(x,y-1,n)].y; let t=vel[ix(x,y+1,n)].y; dout[i]=0.5*((r-l)+(t-b));");
+    var jac = pass("@group(0)@binding(0) var<storage,read> pin: array<f32>; @group(0)@binding(1) var<storage,read> divIn: array<f32>; @group(0)@binding(2) var<storage,read_write> pout: array<f32>; @group(0)@binding(3) var<uniform> u: U;", "let l=pin[ix(x-1,y,n)]; let r=pin[ix(x+1,y,n)]; let b=pin[ix(x,y-1,n)]; let t=pin[ix(x,y+1,n)]; pout[i]=(l+r+b+t-divIn[i])*0.25;");
+    var grd = pass("@group(0)@binding(0) var<storage,read> vin: array<vec2f>; @group(0)@binding(1) var<storage,read> pin: array<f32>; @group(0)@binding(2) var<storage,read_write> vout: array<vec2f>; @group(0)@binding(3) var<uniform> u: U;", "let l=pin[ix(x-1,y,n)]; let r=pin[ix(x+1,y,n)]; let b=pin[ix(x,y-1,n)]; let t=pin[ix(x,y+1,n)]; vout[i]=vin[i]-vec2f(r-l,t-b)*0.5;");
+    var advD = pass("@group(0)@binding(0) var<storage,read> din: array<vec4f>; @group(0)@binding(1) var<storage,read> vel: array<vec2f>; @group(0)@binding(2) var<storage,read_write> dout: array<vec4f>; @group(0)@binding(3) var<uniform> u: U; fn bil(p: vec2f)->vec4f{ let nn=f32(u.n); let cx=clamp(p.x,0.5,nn-0.5)-0.5; let cy=clamp(p.y,0.5,nn-0.5)-0.5; let x0=i32(floor(cx)); let y0=i32(floor(cy)); let fx=cx-f32(x0); let fy=cy-f32(y0); let n=i32(u.n); let a=din[ix(x0,y0,n)]; let b=din[ix(x0+1,y0,n)]; let c=din[ix(x0,y0+1,n)]; let d=din[ix(x0+1,y0+1,n)]; return mix(mix(a,b,fx),mix(c,d,fx),fy); }", "let src=pos-vel[i]*u.dt; dout[i]=bil(src)*0.99;");
+    var splD = pass("@group(0)@binding(0) var<storage,read> din: array<vec4f>; @group(0)@binding(1) var<storage,read_write> dout: array<vec4f>; @group(0)@binding(2) var<uniform> u: U;", "var c=din[i]; if(u.mdown>0.5){ let d=pos-vec2f(u.mx,u.my); let g=exp(-dot(d,d)/40.0); let hue=vec3f(0.5+0.5*sin(u._p),0.6,1.0); c=c+vec4f(hue*g,g); } dout[i]=clamp(c,vec4f(0.0),vec4f(3.0));");
+    var rWGSL = "struct U { n: u32, dt: f32, mx: f32, my: f32, mdx: f32, mdy: f32, mdown: f32, _p: f32 }; @group(0)@binding(0) var<storage,read> dye: array<vec4f>; @group(0)@binding(1) var<uniform> u: U; struct VO { @builtin(position) pos: vec4f, @location(0) uv: vec2f }; @vertex fn vs(@builtin(vertex_index) i: u32)->VO{ var p=array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0)); var o: VO; o.pos=vec4f(p[i],0.0,1.0); o.uv=p[i]*0.5+0.5; return o; } @fragment fn fs(in: VO)->@location(0) vec4f{ let xi=min(u32(in.uv.x*f32(u.n)),u.n-1u); let yi=min(u32((1.0-in.uv.y)*f32(u.n)),u.n-1u); let c=dye[yi*u.n+xi].rgb; return vec4f(c/(c+vec3f(1.0)),1.0); }";
+    (async function () {
+      var adapter = await navigator.gpu.requestAdapter(); if (!adapter) { fallback("No suitable GPU adapter found."); return; }
+      var device = await adapter.requestDevice();
+      var ctx = canvas.getContext("webgpu"); var format = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device: device, format: format, alphaMode: "premultiplied" });
+      var S = GPUBufferUsage.STORAGE;
+      var vel = [device.createBuffer({ size: CELLS * 8, usage: S }), device.createBuffer({ size: CELLS * 8, usage: S })];
+      var dye = [device.createBuffer({ size: CELLS * 16, usage: S }), device.createBuffer({ size: CELLS * 16, usage: S })];
+      var prs = [device.createBuffer({ size: CELLS * 4, usage: S }), device.createBuffer({ size: CELLS * 4, usage: S })];
+      var div = device.createBuffer({ size: CELLS * 4, usage: S });
+      var uni = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      function comp(code) { return device.createComputePipeline({ layout: "auto", compute: { module: device.createShaderModule({ code: code }), entryPoint: "main" } }); }
+      var pAdvV = comp(advV), pSplV = comp(splV), pDiv = comp(dvg), pJac = comp(jac), pGrad = comp(grd), pAdvD = comp(advD), pSplD = comp(splD);
+      var rMod = device.createShaderModule({ code: rWGSL });
+      var rPipe = device.createRenderPipeline({ layout: "auto", vertex: { module: rMod, entryPoint: "vs" }, fragment: { module: rMod, entryPoint: "fs", targets: [{ format: format }] }, primitive: { topology: "triangle-list" } });
+      function bg(pipe, bufs) { return device.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: bufs.map(function (b, n) { return { binding: n, resource: { buffer: b } }; }) }); }
+      function runc(enc, pipe, bufs) { var p = enc.beginComputePass(); p.setPipeline(pipe); p.setBindGroup(0, bg(pipe, bufs)); p.dispatchWorkgroups(Math.ceil(CELLS / 64)); p.end(); }
+      function resize() { var dpr = Math.min(window.devicePixelRatio, 2); canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr)); canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr)); }
+      new ResizeObserver(resize).observe(canvas); resize();
+      var down = 0, mx = N / 2, my = N / 2, pmx = N / 2, pmy = N / 2;
+      canvas.addEventListener("pointermove", function (e) { var r = canvas.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width * N; my = (1 - (e.clientY - r.top) / r.height) * N; down = 1; });
+      canvas.addEventListener("pointerleave", function () { down = 0; });
+      var ud = new ArrayBuffer(32), uF = new Float32Array(ud), uU = new Uint32Array(ud);
+      var vp = 0, dp = 0, start = performance.now();
+      function frame() {
+        var time = (performance.now() - start) / 1000;
+        var umx = mx, umy = my, umdx = mx - pmx, umdy = my - pmy, udown = down;
+        if (down === 0) { umx = N / 2 + Math.cos(time * 0.7) * N * 0.28; umy = N / 2 + Math.sin(time * 1.1) * N * 0.28; umdx = -Math.sin(time * 0.7) * 1.4; umdy = Math.cos(time * 1.1) * 1.4; udown = 1; }
+        pmx = mx; pmy = my;
+        uU[0] = N; uF[1] = 0.6; uF[2] = umx; uF[3] = umy; uF[4] = umdx; uF[5] = umdy; uF[6] = udown; uF[7] = time;
+        device.queue.writeBuffer(uni, 0, ud);
+        var enc = device.createCommandEncoder();
+        runc(enc, pAdvV, [vel[vp], vel[1 - vp], uni]); vp = 1 - vp;
+        runc(enc, pSplV, [vel[vp], vel[1 - vp], uni]); vp = 1 - vp;
+        runc(enc, pDiv, [vel[vp], div, uni]);
+        for (var k = 0; k < ITER; k++) { runc(enc, pJac, [prs[0], div, prs[1], uni]); var t = prs[0]; prs[0] = prs[1]; prs[1] = t; }
+        runc(enc, pGrad, [vel[vp], prs[0], vel[1 - vp], uni]); vp = 1 - vp;
+        runc(enc, pAdvD, [dye[dp], vel[vp], dye[1 - dp], uni]); dp = 1 - dp;
+        runc(enc, pSplD, [dye[dp], dye[1 - dp], uni]); dp = 1 - dp;
+        var rp = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: { r: 0.01, g: 0.01, b: 0.02, a: 1 } }] });
+        rp.setPipeline(rPipe); rp.setBindGroup(0, bg(rPipe, [dye[dp], uni])); rp.draw(3); rp.end();
+        device.queue.submit([enc.finish()]); requestAnimationFrame(frame);
+      }
+      frame();
+    })();
+  })();
+</script>

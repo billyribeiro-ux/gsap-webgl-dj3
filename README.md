@@ -87,10 +87,11 @@ M12 Advanced Cinematic FX (glitch, distortion, GPU particles, postprocessing) ·
 M13 The Frontier (image transitions, metaballs, magnetic cursor, audio‑reactive) ·
 M14 The Bleeding Edge (raymarched SDFs, GPU reaction‑diffusion, GPGPU particles, rigid‑body physics) ·
 M15 WebGPU (WGSL pipelines, a million‑particle compute shader, boids, N‑body gravity,
-Conway's Life, and a 200k‑agent slime‑mould simulation).
+Conway's Life, a 200k‑agent slime‑mould, and a real‑time Navier‑Stokes fluid solver).
 
-**53 lessons across 15 modules**, every one fully authored with a live demo and
-copy‑paste TypeScript code — and **51 runnable routes** in the reference app.
+**54 lessons across 15 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **52 runnable routes** in the reference app. The app's
+landing page groups every demo by module, and all navigations use the View Transitions API.
 
 ---
 

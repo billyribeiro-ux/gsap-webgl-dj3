@@ -1,9 +1,24 @@
 <script lang="ts">
   import '../app.css';
   import { page } from '$app/state';
+  import { onNavigate } from '$app/navigation';
+  import { prefersReducedMotion } from 'svelte/motion';
   import { House, GithubLogo } from 'phosphor-svelte';
 
   let { children } = $props();
+
+  // Upgrade every client-side navigation to a View Transition (the lesson in M1,
+  // applied to the whole app). Cards on the landing page share a
+  // `view-transition-name` with their target, so they morph into the lesson view.
+  onNavigate((navigation) => {
+    if (!document.startViewTransition || prefersReducedMotion.current) return;
+    return new Promise((resolve) => {
+      document.startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 </script>
 
 <div class="shell">

@@ -172,7 +172,8 @@ window.COURSE = {
         { slug: "f2-boids", title: "Compute Boids — Emergent Flocking", status: "live" },
         { slug: "f3-nbody", title: "N-Body Gravity — A Galaxy Forms", status: "live" },
         { slug: "f4-game-of-life", title: "Conway's Game of Life on the GPU", status: "live" },
-        { slug: "f5-slime-mould", title: "Slime Mould (Physarum) — Emergent Networks", status: "live" }
+        { slug: "f5-slime-mould", title: "Slime Mould (Physarum) — Emergent Networks", status: "live" },
+        { slug: "f6-fluid", title: "A Real-Time Fluid Solver (Navier-Stokes)", status: "live" }
       ]
     }
   ]

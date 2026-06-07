@@ -58,11 +58,26 @@ export const lessons: Lesson[] = [
   { slug: 'boids', title: 'Compute Boids', module: 'WebGPU', blurb: 'Emergent flocking, one thread per bird.' },
   { slug: 'nbody', title: 'N-Body Galaxy', module: 'WebGPU', blurb: 'All-pairs gravity forms spiral arms.' },
   { slug: 'game-of-life', title: "Conway's Life", module: 'WebGPU', blurb: 'Cellular automata on the GPU.' },
-  { slug: 'slime', title: 'Slime Mould', module: 'WebGPU', blurb: '200k agents grow living networks.' }
+  { slug: 'slime', title: 'Slime Mould', module: 'WebGPU', blurb: '200k agents grow living networks.' },
+  { slug: 'fluid', title: 'Fluid Solver', module: 'WebGPU', blurb: 'Navier-Stokes ink in water.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {
   const i = lessons.findIndex((l) => l.slug === slug);
   if (i === -1) return {};
   return { prev: lessons[i - 1], next: lessons[i + 1] };
+}
+
+/** Group the lessons by module, preserving order — drives the grouped landing page. */
+export function byModule(): { module: string; items: Lesson[] }[] {
+  const groups: { module: string; items: Lesson[] }[] = [];
+  for (const lesson of lessons) {
+    let g = groups[groups.length - 1];
+    if (!g || g.module !== lesson.module) {
+      g = { module: lesson.module, items: [] };
+      groups.push(g);
+    }
+    g.items.push(lesson);
+  }
+  return groups;
 }
