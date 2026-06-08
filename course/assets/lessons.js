@@ -193,6 +193,16 @@ window.COURSE = {
         { slug: "h0-ocean", title: "A Spectral Ocean (FFT Waves)", status: "live" },
         { slug: "h1-splatting", title: "3D Gaussian Splatting", status: "live" }
       ]
+    },
+    {
+      num: "M18",
+      title: "The 2026 Frontier",
+      desc: "The literal bleeding edge: on-device AI, the WebGPU/TSL renderer, and Svelte's newest async + remote functions.",
+      lessons: [
+        { slug: "i0-on-device-ai", title: "On-Device AI — Neural Nets on the GPU (Transformers.js)", status: "live" },
+        { slug: "i1-tsl", title: "WebGPURenderer + TSL — Modern Three.js Shading", status: "live" },
+        { slug: "i2-svelte-async", title: "Svelte Async & SvelteKit Remote Functions", status: "live" }
+      ]
     }
   ]
 };

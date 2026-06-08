@@ -90,10 +90,12 @@ M15 WebGPU (WGSL pipelines, a million‑particle compute shader, boids, N‑body
 Conway's Life, a 200k‑agent slime‑mould, and a real‑time Navier‑Stokes fluid solver) ·
 M16 The Abyss — beyond real‑time (volumetric cloud raymarching, and a progressive WebGPU
 path tracer with true global illumination) ·
-M17 Mastery — distinguished rendering (a spectral/FFT‑style ocean, and 3D Gaussian splatting).
+M17 Mastery — distinguished rendering (a spectral/FFT‑style ocean, and 3D Gaussian splatting) ·
+M18 The 2026 Frontier — on‑device AI (Transformers.js v4 neural nets on WebGPU), the modern
+Three.js WebGPURenderer + TSL node shaders, and Svelte's newest async + SvelteKit remote functions.
 
-**58 lessons across 17 modules**, every one fully authored with a live demo and
-copy‑paste TypeScript code — and **56 runnable routes** in the reference app. The app's
+**61 lessons across 18 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **59 runnable routes** in the reference app. The app's
 landing page groups every demo by module, and all navigations use the View Transitions API.
 
 ---

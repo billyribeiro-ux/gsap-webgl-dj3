@@ -1,0 +1,88 @@
+<!--lead: Svelte and SvelteKit had their own 2026 leap: top-level await right in components, and "remote functions" — type-safe server calls (including real-time query.live) you invoke straight from your markup. Data loading just got dramatically simpler.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    The whole course is built on Svelte 5 runes. But mid-2026 added two features that change
+    how you load data. First, <strong>experimental <code>await</code></strong>: you can now
+    <code>await</code> promises at the top level of a component, inside <code>$derived</code>,
+    and directly in markup — no <code>{#await}</code> wrapper. Second,
+    <strong>SvelteKit remote functions</strong>: <code>query</code>, <code>form</code>,
+    <code>command</code> and <code>prerender</code> let you call <em>server</em> code from
+    anywhere in your app, fully type-safe — and <code>query.live()</code> streams real-time data.
+  </p>
+
+  <h2>Async data, the simple way</h2>
+  <p>
+    The demo uses the stable <code>{#await}</code> block (runs everywhere today) plus a
+    self-updating value — the shape <code>query.live()</code> gives you. The panels below show
+    the 2026 syntax it desugars to.
+  </p>
+
+  <div class="workbench workbench--wide" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · load &amp; live data</span>
+      <div id="async-demo" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <!--code file="frontier/AsyncData.svelte" name="src/lib/AsyncData.svelte"-->
+  </div>
+
+  <h2>1 · Remote functions — call the server from anywhere</h2>
+  <p>
+    Define server functions in a <code>.remote.ts</code> file. They run only on the server (so
+    they can touch the database and secrets), but you import and call them like normal functions
+    — SvelteKit generates the HTTP endpoint and a <code>fetch</code> wrapper for you, with
+    arguments validated by a schema.
+  </p>
+  <!--code file="frontier/data.remote.ts" name="src/routes/blog/data.remote.ts"-->
+
+  <h2>2 · Await them straight in your markup</h2>
+  <p>
+    No <code>load</code> function, no <code>{#await}</code>, no manual fetch. Await the query in
+    the template; a <code>&lt;svelte:boundary&gt;</code> handles loading and errors. A
+    <code>query.live()</code> value re-renders itself as new data streams in.
+  </p>
+  <!--code file="frontier/Page.svelte" name="src/routes/blog/+page.svelte"-->
+
+  <h2>3 · Opt in</h2>
+  <p>Both features are experimental in mid-2026, so you enable them explicitly:</p>
+  <!--code file="frontier/svelte.config.js" name="svelte.config.js"-->
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Why this matters for everything you've built.</strong> Your cinematic components
+      need data — a gallery's items, a dashboard's live numbers, a 3D scene's config. Remote
+      functions collapse the old <code>load</code> + endpoint + fetch + types dance into a single
+      typed call, and <code>query.live()</code> means your D3 charts and WebGL scenes can react
+      to real-time server data with a value that simply updates itself. The newest Svelte makes
+      the plumbing disappear so you can spend your time on the motion.
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const mount = document.getElementById("async-demo");
+    if (!mount) return;
+    const POOL = [
+      ["Easing & the soul of motion", 8], ["GSAP timelines", 12], ["ScrollTrigger storytelling", 15],
+      ["A path tracer in WGSL", 22], ["Gaussian splatting", 18]
+    ];
+    mount.innerHTML =
+      '<div style="width:min(380px,92%);display:flex;flex-direction:column;gap:1rem">' +
+      '<button class="ad-load" style="align-self:start;padding:.6rem 1.3rem;border-radius:999px;border:none;font-weight:700;color:#05060a;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer">Load posts</button>' +
+      '<div class="ad-out"></div>' +
+      '<p style="display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;color:#8b93a7;font-family:ui-monospace,monospace"><span class="ad-dot" style="width:8px;height:8px;border-radius:50%;background:#19e3d6;box-shadow:0 0 8px #19e3d6"></span> live query · connected <span class="ad-sec">0</span>s</p></div>';
+    const out = mount.querySelector(".ad-out");
+    mount.querySelector(".ad-load").addEventListener("click", () => {
+      out.innerHTML = '<p style="color:#8b93a7;margin:0">fetching on the server…</p>';
+      setTimeout(() => {
+        const picks = POOL.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+        out.innerHTML = '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem">' +
+          picks.map((p) => '<li style="display:flex;justify-content:space-between;gap:1rem;padding:.7rem .9rem;border-radius:10px;background:#11141f;border:1px solid #1b2030;color:#d6dbe6"><span>' + p[0] + '</span><b style="color:#19e3d6">' + p[1] + 'm</b></li>').join("") + "</ul>";
+      }, 900);
+    });
+    let s = 0; const sec = mount.querySelector(".ad-sec");
+    setInterval(() => { s += 1; sec.textContent = String(s); }, 1000);
+  })();
+</script>

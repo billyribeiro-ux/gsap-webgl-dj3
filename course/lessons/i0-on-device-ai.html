@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>On-Device AI — Neural Nets on the GPU (Transformers.js) — MOTION</title>
+  <meta name="description" content="The defining shift of 2026: the browser is now an AI runtime. With Transformers.js v4 and WebGPU, a real neural network downloads once and runs entirely on your device — no server, no API key, nothing leaves your machine. Here: live sentiment analysis as you type." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+</head>
+<body data-slug="i0-on-device-ai">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M18 · The 2026 Frontier</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">On-Device AI — Neural Nets on the GPU (Transformers.js)</h1>
+        <p class="hero__lead" data-reveal="120">The defining shift of 2026: the browser is now an AI runtime. With Transformers.js v4 and WebGPU, a real neural network downloads once and runs entirely on your device — no server, no API key, nothing leaves your machine. Here: live sentiment analysis as you type.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    For this whole course we've pushed pixels on the GPU. In 2026 that same GPU runs
+    <strong>neural networks</strong>. <strong>Transformers.js v4</strong> (Feb 2026) loads
+    quantized models and executes them via <strong>WebGPU</strong> — Hugging Face clocked it
+    "faster than cloud inference, in your browser," and WebLLM runs an 8B-parameter LLM at
+    ~70% of native speed. This is the genuine frontier of the web platform, and it's
+    astonishingly little code.
+  </p>
+
+  <h2>Run a neural net on your GPU</h2>
+  <p>
+    Click to download a small sentiment model (~65&nbsp;MB, once). Then type — every keystroke
+    is classified <em>locally</em>, on your hardware. Nothing is sent anywhere.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · on-device inference</span>
+      <div id="ai-demo" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <!-- missing snippet: frontier/OnDeviceAI.svelte -->
+  </div>
+
+  <h2>The whole pipeline is three lines</h2>
+  <ul>
+    <li><strong>Load a pipeline.</strong> <code>const classify = await pipeline('sentiment-analysis',
+      undefined, { device: 'webgpu' })</code>. Transformers.js fetches the model + tokenizer
+      from the Hugging Face hub (cached after first load) and compiles it for the GPU. The
+      <code>task</code> string picks the model: swap in <code>'image-classification'</code>,
+      <code>'zero-shot-classification'</code>, <code>'feature-extraction'</code> (embeddings),
+      <code>'automatic-speech-recognition'</code>, even text generation.</li>
+    <li><strong>Call it.</strong> <code>await classify(text)</code> returns
+      <code>[{`{ label, score }`}]</code>. That's an actual transformer forward-pass running on
+      your GPU — the same architecture as the big models, just small and quantized.</li>
+    <li><strong>WebGPU or WASM.</strong> We request the WebGPU backend (3–10× faster) and fall
+      back to WASM if it's unavailable. Either way it's on-device.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M213.85,125.46l-112,120a8,8,0,0,1-13.69-7L109.25,141H37.74a8,8,0,0,1-6.59-12.69l112-120a8,8,0,0,1,13.69,7L146.75,115h71.51a8,8,0,0,1,6.59,12.46Z" transform="scale(0.9) translate(14 14)"/></svg></span>
+    <div class="callout__body">
+      <strong>Why this changes the economics.</strong> One team cut a $12,000/month inference
+      bill to <em>zero</em> by moving classification, autocomplete, embeddings and summarization
+      to the client. On-device is the sweet spot for high-frequency, low-complexity AI: it's
+      free, private (data never leaves the device), works offline, and has no network latency.
+      Heavy reasoning still goes to a server — but a huge slice of "AI features" now belong in
+      the browser. Pair this with everything you've built and you can ship a private,
+      GPU-accelerated, AI-powered interface that also looks cinematic.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  const mount = document.getElementById("ai-demo");
+  if (mount) {
+    mount.innerHTML =
+      '<div class="ai" style="width:min(440px,94%);display:flex;flex-direction:column;gap:.9rem;align-items:center;text-align:center">' +
+      '<button class="ai-go" style="padding:.85rem 1.6rem;border-radius:999px;border:none;font-weight:700;color:#05060a;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer">▷ Run a neural net on your GPU</button>' +
+      '<p class="ai-note" style="color:#8b93a7;font-size:.85rem;margin:0">Downloads a ~65&nbsp;MB model once, then runs entirely on your device.</p></div>';
+    const wrap = mount.querySelector(".ai");
+    const go = mount.querySelector(".ai-go");
+    let classify = null, backend = "", timer = null;
+    function setHTML(h) { wrap.innerHTML = h; }
+    async function start() {
+      setHTML('<p style="color:#d6dbe6;display:inline-flex;align-items:center;gap:.5rem"><span class="aispin" style="width:14px;height:14px;border-radius:50%;border:2px solid #2a3142;border-top-color:#19e3d6;display:inline-block;animation:aisp .8s linear infinite"></span> Downloading &amp; compiling the model…</p>');
+      if (!document.getElementById("aisp-kf")) { const s = document.createElement("style"); s.id = "aisp-kf"; s.textContent = "@keyframes aisp{to{transform:rotate(360deg)}}"; document.head.appendChild(s); }
+      try {
+        const url = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4";
+        const mod = await import(url);
+        try { classify = await mod.pipeline("sentiment-analysis", undefined, { device: "webgpu" }); backend = "WebGPU"; }
+        catch (e) { classify = await mod.pipeline("sentiment-analysis"); backend = "WASM"; }
+        ready();
+      } catch (e) { setHTML('<p style="color:#ff5f9e">Couldn’t load the model (offline or blocked).</p>'); }
+    }
+    function ready() {
+      setHTML(
+        '<span style="font-family:ui-monospace,monospace;font-size:.7rem;letter-spacing:.08em;color:#19e3d6;border:1px solid color-mix(in oklab,#19e3d6 40%,transparent);border-radius:999px;padding:.15rem .6rem">inference: ' + backend + '</span>' +
+        '<textarea class="ai-text" rows="2" spellcheck="false" style="width:100%;resize:none;padding:.8rem 1rem;border-radius:12px;background:#11141f;border:1px solid #2a3142;color:#f4f6fb;font:inherit">I can’t believe how good this animation course is!</textarea>' +
+        '<div class="ai-out" style="width:100%"></div>'
+      );
+      const ta = wrap.querySelector(".ai-text");
+      ta.addEventListener("input", () => { if (timer) clearTimeout(timer); timer = setTimeout(run, 350); });
+      run();
+    }
+    async function run() {
+      const ta = wrap.querySelector(".ai-text"); if (!ta || !classify) return;
+      const out = await classify(ta.value); const r = out[0];
+      const pos = r.label === "POSITIVE";
+      const col = pos ? "linear-gradient(90deg,#19e3d6,#7c5cff)" : "linear-gradient(90deg,#ff5f9e,#ff9e5f)";
+      wrap.querySelector(".ai-out").innerHTML =
+        '<div style="display:flex;align-items:center;gap:.8rem">' +
+        '<span style="font-weight:700;font-size:.85rem;min-width:8ch;text-align:left;color:' + (pos ? "#19e3d6" : "#ff5f9e") + '">' + r.label + '</span>' +
+        '<div style="flex:1;height:10px;border-radius:999px;background:#11141f;overflow:hidden"><span style="display:block;height:100%;width:' + (r.score * 100).toFixed(1) + '%;background:' + col + '"></span></div>' +
+        '<span style="font-variant-numeric:tabular-nums;color:#aab2c5;font-size:.85rem">' + (r.score * 100).toFixed(1) + '%</span></div>';
+    }
+    go.addEventListener("click", start);
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M18 The 2026 Frontier</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

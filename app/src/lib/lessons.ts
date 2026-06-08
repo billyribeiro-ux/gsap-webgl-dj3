@@ -63,7 +63,10 @@ export const lessons: Lesson[] = [
   { slug: 'volumetrics', title: 'Volumetric Clouds', module: 'The Abyss', blurb: 'Raymarched participating media.' },
   { slug: 'pathtracer', title: 'Path Tracer', module: 'The Abyss', blurb: 'Real global illumination, live.' },
   { slug: 'ocean', title: 'Spectral Ocean', module: 'Mastery', blurb: 'FFT-style waves + water shading.' },
-  { slug: 'splatting', title: 'Gaussian Splatting', module: 'Mastery', blurb: 'The 2023 radiance-field frontier.' }
+  { slug: 'splatting', title: 'Gaussian Splatting', module: 'Mastery', blurb: 'The 2023 radiance-field frontier.' },
+  { slug: 'on-device-ai', title: 'On-Device AI', module: '2026 Frontier', blurb: 'A neural net on your GPU, live.' },
+  { slug: 'tsl', title: 'WebGPURenderer + TSL', module: '2026 Frontier', blurb: 'Modern Three.js node shaders.' },
+  { slug: 'svelte-async', title: 'Async & Remote Functions', module: '2026 Frontier', blurb: "Svelte/Kit's newest data APIs." }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

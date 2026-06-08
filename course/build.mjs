@@ -83,6 +83,9 @@ const LIBS = {
   "g1-pathtracer": [],
   "h0-ocean": ["three"],
   "h1-splatting": ["three"],
+  "i0-on-device-ai": [],
+  "i1-tsl": ["tsl"],
+  "i2-svelte-async": [],
   "00-welcome": [],
   "01-principles-of-motion": []
 };
@@ -128,6 +131,13 @@ function libTags(slug) {
   }
   if (libs.includes("cannon")) {
     imports["cannon-es"] = "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js";
+  }
+  if (libs.includes("tsl")) {
+    // The modern Three.js entry points: WebGPU renderer + the TSL node language.
+    imports["three"] = `https://unpkg.com/three@${THREE_VERSION}/build/three.module.js`;
+    imports["three/webgpu"] = `https://unpkg.com/three@${THREE_VERSION}/build/three.webgpu.js`;
+    imports["three/tsl"] = `https://unpkg.com/three@${THREE_VERSION}/build/three.tsl.js`;
+    imports["three/addons/"] = `https://unpkg.com/three@${THREE_VERSION}/examples/jsm/`;
   }
   let importmap = "";
   if (Object.keys(imports).length) {

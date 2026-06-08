@@ -1,0 +1,80 @@
+<!--lead: As of r184, Three.js has a new heart: the WebGPURenderer and TSL — the Three Shading Language. Instead of writing raw GLSL/WGSL strings, you compose shaders from JavaScript nodes that compile to whichever backend the browser supports. This is the modern, official way.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Every shader we've hand-written has been a GLSL or WGSL <em>string</em> — powerful, but
+    untyped, un-composable, and locked to one backend. Three.js's answer, now production-ready
+    in r184, is <strong>TSL (Three Shading Language)</strong>: you build shaders as a graph of
+    JavaScript <strong>nodes</strong>, and the <strong>WebGPURenderer</strong> compiles them to
+    <strong>WGSL</strong> on WebGPU — or transparently to GLSL on the WebGL2 fallback. Same
+    visual, authored the modern way.
+  </p>
+
+  <h2>An aurora, authored in TSL</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · WebGPURenderer + TSL</span>
+      <canvas id="tsl-canvas" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+    <!--code file="frontier/TSLGradient.svelte" name="src/lib/TSLGradient.svelte"-->
+  </div>
+
+  <h2>Why nodes beat strings</h2>
+  <ul>
+    <li><strong>Backend-agnostic.</strong> Write once; TSL emits WGSL for WebGPU and GLSL for
+      WebGL2. You stop maintaining two shader dialects, and your effects run on the ~82% of
+      browsers with WebGPU <em>and</em> everyone else.</li>
+    <li><strong>Composable &amp; typed.</strong> Nodes are JavaScript values:
+      <code>sin(uv().x.mul(6).add(time))</code>. You build helpers, reuse fragments, and your
+      editor autocompletes them. <code>time</code> auto-updates; uniforms wire themselves up.
+      No more string concatenation and manual <code>uniform</code> plumbing.</li>
+    <li><strong>It plugs into materials.</strong> Assign your node to
+      <code>material.colorNode</code> (or <code>positionNode</code>, <code>emissiveNode</code>,
+      <code>normalNode</code>…) on a <code>NodeMaterial</code>. You can override just one channel
+      of a standard PBR material with a node — TSL composes <em>with</em> Three's lighting, not
+      around it.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40Zm-92,98.34a8,8,0,0,1-11.32,0L80,113.66l-13.66,13.65a8,8,0,0,1-11.32-11.31l20-20a8,8,0,0,1,11.32,0L116,127.03l45.66-45.66a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+    <div class="callout__body">
+      <strong>The one new ceremony: <code>await renderer.init()</code>.</strong> The
+      WebGPURenderer sets up the device asynchronously, so you init it once before the first
+      render and use <code>renderer.renderAsync(...)</code> (or <code>setAnimationLoop</code>)
+      in the loop. TSL is also the gateway to <strong>compute</strong> in Three —
+      <code>Fn(...).compute(count)</code> runs a node graph as a compute shader, so the GPGPU
+      particle systems we wrote by hand can be authored declaratively. This is where Three.js
+      is heading; everything raw-WebGL you learned still applies underneath.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three/webgpu";
+  import { Fn, uv, time, sin, mix, vec3, smoothstep } from "three/tsl";
+  const canvas = document.getElementById("tsl-canvas");
+  if (canvas) {
+    (async () => {
+      const renderer = new THREE.WebGPURenderer({ canvas, antialias: true });
+      await renderer.init();
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      const colorNode = Fn(() => {
+        const u = uv();
+        const t = time;
+        const v = sin(u.x.mul(6).add(t))
+          .add(sin(u.y.mul(7).sub(t)))
+          .add(sin(u.x.add(u.y).mul(5).add(t.mul(1.3))))
+          .mul(0.33);
+        const base = mix(vec3(0.486, 0.36, 1.0), vec3(0.098, 0.89, 0.839), smoothstep(-1, 1, v));
+        return mix(base, vec3(1.0, 0.373, 0.62), smoothstep(0.4, 1, sin(u.y.mul(3).add(t))).mul(0.6));
+      })();
+      const material = new THREE.MeshBasicNodeMaterial();
+      material.colorNode = colorNode;
+      scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+      const resize = () => renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+      new ResizeObserver(resize).observe(canvas); resize();
+      renderer.setAnimationLoop(() => renderer.renderAsync(scene, camera));
+    })();
+  }
+</script>
