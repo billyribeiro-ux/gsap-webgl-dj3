@@ -1,0 +1,108 @@
+<!--lead: Our first Gaussian splatter glowed because it cheated — additive blending. The real thing needs alpha "over" compositing, which is order-dependent: splats must be drawn back-to-front. Here's the correct, depth-sorted version.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    In the splatting lesson we used additive blending — gorgeous, but order-independent, which
+    is why it glowed like a nebula rather than reading as a solid surface. Correct Gaussian
+    splatting uses <strong>alpha "over" compositing</strong>, and that's
+    <strong>order-dependent</strong>: to blend transparently, you must draw the splats
+    <em>back-to-front</em>. So every frame we depth-sort all of them. This is the piece that
+    makes splats look photoreal.
+  </p>
+
+  <h2>Now it's solid</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · sorted alpha splatting · drag to orbit</span>
+      <canvas id="ssplat-canvas" style="width:100%;height:360px;display:block"></canvas>
+    </div>
+    <!--code file="fx/SortedSplat.svelte" name="src/lib/SortedSplat.svelte"-->
+  </div>
+
+  <h2>The transparency problem, solved</h2>
+  <ul>
+    <li><strong>Why order matters.</strong> "Over" compositing —
+      <code>result = src + dst·(1−srcAlpha)</code> — is non-commutative: blend a red splat over
+      a blue one and you get a different pixel than blue over red. Get the order wrong and
+      surfaces look inside-out, with far splats punching through near ones.</li>
+    <li><strong>Sort every frame.</strong> We compute each splat's camera-space depth (transform
+      its centre by the model-view matrix), sort the indices back-to-front, and reorder the
+      instance buffers before drawing. With depth-test off and depth-write off, the sorted draw
+      order <em>is</em> the compositing order.</li>
+    <li><strong>Premultiplied alpha.</strong> The fragment outputs
+      <code>vec4(color·alpha, alpha)</code> and the material uses premultiplied "over" blending —
+      the numerically correct way to composite many semi-transparent layers without darkening
+      fringes.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"/></svg></span>
+    <div class="callout__body">
+      <strong>We sort on the CPU; production radix-sorts on the GPU.</strong> An
+      <code>Array.sort</code> of 14,000 depths is instant. But a real captured scene has
+      <em>millions</em> of splats, far too many to sort on the CPU each frame. The answer is a
+      <strong>GPU radix sort</strong>: a compute pipeline that buckets splats by quantized depth
+      across a few passes (histogram → prefix-sum → scatter) in O(n) — exactly the kind of
+      compute-shader machinery you built for boids and fluids, now sorting instead of simulating.
+      That's the last gap between this demo and a full 3D-Gaussian-Splatting renderer.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  const canvas = document.getElementById("ssplat-canvas");
+  if (canvas) {
+    const SPLATS = 14000;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100); camera.position.set(0, 0, 5.2);
+    const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enablePan = false;
+    const oCenter = new Float32Array(SPLATS * 3), oColor = new Float32Array(SPLATS * 3), oA0 = new Float32Array(SPLATS * 3), oA1 = new Float32Array(SPLATS * 3), oA2 = new Float32Array(SPLATS * 3);
+    const violet = new THREE.Color("#7c5cff"), cyan = new THREE.Color("#19e3d6"), pink = new THREE.Color("#ff5f9e");
+    const knot = (t) => { const r = 0.9 + 0.4 * Math.cos(2 * t); return new THREE.Vector3(r * Math.cos(3 * t), r * Math.sin(3 * t), 0.5 * Math.sin(5 * t)); };
+    for (let i = 0; i < SPLATS; i++) {
+      const t = (i / SPLATS) * Math.PI * 2, p = knot(t), tangent = knot(t + 0.002).sub(p).normalize();
+      let nrm = new THREE.Vector3(0, 1, 0).cross(tangent); if (nrm.lengthSq() < 1e-4) nrm = new THREE.Vector3(1, 0, 0).cross(tangent); nrm.normalize();
+      const bnm = tangent.clone().cross(nrm).normalize(), th = Math.random() * Math.PI * 2, tubeR = 0.16 + Math.random() * 0.05;
+      const c = p.clone().add(nrm.clone().multiplyScalar(Math.cos(th) * tubeR)).add(bnm.clone().multiplyScalar(Math.sin(th) * tubeR));
+      oCenter.set([c.x, c.y, c.z], i * 3);
+      const col = violet.clone().lerp(cyan, (Math.sin(3 * t) + 1) / 2).lerp(pink, Math.abs(Math.cos(2 * t)) * 0.4);
+      oColor.set([col.r, col.g, col.b], i * 3);
+      oA0.set([tangent.x * 0.07, tangent.y * 0.07, tangent.z * 0.07], i * 3);
+      oA1.set([nrm.x * 0.035, nrm.y * 0.035, nrm.z * 0.035], i * 3);
+      oA2.set([bnm.x * 0.035, bnm.y * 0.035, bnm.z * 0.035], i * 3);
+    }
+    const center = new Float32Array(SPLATS * 3), color = new Float32Array(SPLATS * 3), a0 = new Float32Array(SPLATS * 3), a1 = new Float32Array(SPLATS * 3), a2 = new Float32Array(SPLATS * 3);
+    const base = new THREE.PlaneGeometry(1, 1);
+    const geo = new THREE.InstancedBufferGeometry(); geo.index = base.index; geo.attributes.position = base.attributes.position;
+    const aCenter = new THREE.InstancedBufferAttribute(center, 3), aColor = new THREE.InstancedBufferAttribute(color, 3), aAx0 = new THREE.InstancedBufferAttribute(a0, 3), aAx1 = new THREE.InstancedBufferAttribute(a1, 3), aAx2 = new THREE.InstancedBufferAttribute(a2, 3);
+    geo.setAttribute("aCenter", aCenter); geo.setAttribute("aColor", aColor); geo.setAttribute("aAxis0", aAx0); geo.setAttribute("aAxis1", aAx1); geo.setAttribute("aAxis2", aAx2);
+    geo.instanceCount = SPLATS;
+    const material = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: false, premultipliedAlpha: true, blending: THREE.NormalBlending,
+      uniforms: { uModel: { value: new THREE.Matrix4() } },
+      vertexShader: "attribute vec3 aCenter; attribute vec3 aColor; attribute vec3 aAxis0; attribute vec3 aAxis1; attribute vec3 aAxis2; uniform mat4 uModel; varying vec2 vG; varying vec3 vColor; vec2 toNDC(vec3 wp, out float w){ vec4 clip=projectionMatrix*viewMatrix*uModel*vec4(wp,1.0); w=clip.w; return clip.xy/clip.w; } void main(){ float w0; vec2 c0=toNDC(aCenter,w0); float wj; vec2 s0=toNDC(aCenter+aAxis0,wj)-c0; vec2 s1=toNDC(aCenter+aAxis1,wj)-c0; vec2 s2=toNDC(aCenter+aAxis2,wj)-c0; float a=s0.x*s0.x+s1.x*s1.x+s2.x*s2.x; float b=s0.x*s0.y+s1.x*s1.y+s2.x*s2.y; float d=s0.y*s0.y+s1.y*s1.y+s2.y*s2.y; float tr=a+d; float det=a*d-b*b; float disc=sqrt(max(tr*tr*0.25-det,0.0)); float l1=tr*0.5+disc; float l2=max(tr*0.5-disc,0.0); vec2 e1; if(abs(b)<1e-7){ e1=(a>=d)?vec2(1.0,0.0):vec2(0.0,1.0);} else { e1=normalize(vec2(b,l1-a)); } vec2 e2=vec2(-e1.y,e1.x); vec2 major=e1*sqrt(l1); vec2 minor=e2*sqrt(l2); vec2 corner=position.xy*2.0; float SIG=2.6; vec2 offset=corner.x*major*SIG+corner.y*minor*SIG; vG=corner*SIG; vColor=aColor; gl_Position=vec4((c0+offset)*w0,0.0,w0); }",
+      fragmentShader: "varying vec2 vG; varying vec3 vColor; void main(){ float alpha=exp(-0.5*dot(vG,vG))*0.92; if(alpha<0.004) discard; gl_FragColor=vec4(vColor*alpha, alpha); }"
+    });
+    const mesh = new THREE.Mesh(geo, material); mesh.frustumCulled = false; scene.add(mesh);
+    function resize() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const order = Array.from({ length: SPLATS }, (_, i) => i), depth = new Float32Array(SPLATS), mv = new THREE.Matrix4(), v = new THREE.Vector3();
+    const clock = new THREE.Clock();
+    function tick() {
+      const t = clock.getElapsedTime();
+      mesh.rotation.y = t * 0.25; mesh.rotation.x = Math.sin(t * 0.2) * 0.3; mesh.updateMatrixWorld();
+      material.uniforms.uModel.value.copy(mesh.matrixWorld); controls.update();
+      mv.multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
+      for (let i = 0; i < SPLATS; i++) { v.set(oCenter[i * 3], oCenter[i * 3 + 1], oCenter[i * 3 + 2]).applyMatrix4(mv); depth[i] = v.z; }
+      order.sort((p, q) => depth[p] - depth[q]);
+      for (let k = 0; k < SPLATS; k++) { const s = order[k]; for (let c = 0; c < 3; c++) { center[k * 3 + c] = oCenter[s * 3 + c]; color[k * 3 + c] = oColor[s * 3 + c]; a0[k * 3 + c] = oA0[s * 3 + c]; a1[k * 3 + c] = oA1[s * 3 + c]; a2[k * 3 + c] = oA2[s * 3 + c]; } }
+      aCenter.needsUpdate = aColor.needsUpdate = aAx0.needsUpdate = aAx1.needsUpdate = aAx2.needsUpdate = true;
+      renderer.render(scene, camera); requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>

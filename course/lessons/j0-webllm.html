@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>An LLM in Your Browser (WebLLM) — MOTION</title>
+  <meta name="description" content="The summit of the 2026 web: a full large language model running entirely in your browser, on your GPU. WebLLM downloads a quantized model once, compiles it for WebGPU, and streams tokens — no server, no API key, completely private." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+</head>
+<body data-slug="j0-webllm">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M19 · Endgame</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">An LLM in Your Browser (WebLLM)</h1>
+        <p class="hero__lead" data-reveal="120">The summit of the 2026 web: a full large language model running entirely in your browser, on your GPU. WebLLM downloads a quantized model once, compiles it for WebGPU, and streams tokens — no server, no API key, completely private.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    A sentiment classifier was the appetizer. This is the main course: a real
+    <strong>large language model</strong> — billions of operations per token — running as a
+    client-side dependency. <strong>WebLLM</strong> (from the MLC team) downloads a quantized
+    model, compiles its kernels to <strong>WebGPU</strong>, and streams a response token by
+    token. Published benchmarks hit ~70–80% of native speed. Nothing you type leaves your
+    machine. This is genuinely the highest level the web platform reaches in 2026.
+  </p>
+
+  <h2>Chat with a model on your own GPU</h2>
+  <p>
+    Click to load a small (~0.5B parameter) model — a one-time ~400&nbsp;MB download, then it's
+    cached and fully offline. Then chat. Every token is generated locally.
+  </p>
+
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo>
+      <span class="stage__label">Live demo · an LLM in your browser</span>
+      <div id="llm-demo" class="center" style="width:100%;height:100%;padding:1.25rem"></div>
+    </div>
+    <div class="codepanel" data-file="src/lib/WebLLM.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/WebLLM.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  // A full large language model running in your browser, on your GPU. WebLLM
+  // downloads a quantized model once (cached), compiles it for WebGPU, and streams
+  // tokens — no server, no API key, completely private. This is the literal
+  // frontier of the 2026 web: an LLM as a client-side dependency.
+  type Msg = { role: 'user' | 'assistant'; content: string };
+
+  const MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC'; // ~0.5B params, smallest practical
+
+  let status = $state&lt;'idle' | 'loading' | 'ready' | 'busy' | 'error'&gt;('idle');
+  let progress = $state(0);
+  let progressText = $state('');
+  let input = $state('');
+  let messages = $state&lt;Msg[]&gt;([]);
+  let engine: { chat: { completions: { create: (o: unknown) =&gt; Promise&lt;AsyncIterable&lt;unknown&gt;&gt; } } } | null = null;
+
+  async function load(): Promise&lt;void&gt; {
+    if (!navigator.gpu) { status = 'error'; progressText = 'WebGPU is required and not available here.'; return; }
+    status = 'loading';
+    try {
+      const url = 'https://esm.run/@mlc-ai/web-llm';
+      const mod = await import(/* @vite-ignore */ url);
+      engine = await mod.CreateMLCEngine(MODEL, {
+        initProgressCallback: (r: { progress: number; text: string }) =&gt; {
+          progress = r.progress;
+          progressText = r.text;
+        }
+      });
+      status = 'ready';
+    } catch {
+      status = 'error';
+      progressText = 'Failed to load the model (needs WebGPU + bandwidth).';
+    }
+  }
+
+  async function send(): Promise&lt;void&gt; {
+    if (status !== 'ready' || !input.trim() || !engine) return;
+    const text = input.trim();
+    input = '';
+    messages = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }];
+    status = 'busy';
+    try {
+      const stream = await engine.chat.completions.create({
+        messages: messages.slice(0, -1).map((m) =&gt; ({ role: m.role, content: m.content })),
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 256
+      });
+      let acc = '';
+      for await (const chunk of stream as AsyncIterable&lt;{ choices?: Array&lt;{ delta?: { content?: string } }&gt; }&gt;) {
+        acc += chunk.choices?.[0]?.delta?.content ?? '';
+        messages = [...messages.slice(0, -1), { role: 'assistant', content: acc }];
+      }
+    } catch {
+      messages = [...messages.slice(0, -1), { role: 'assistant', content: '(generation error)' }];
+    }
+    status = 'ready';
+  }
+&lt;/script&gt;
+
+&lt;div class="llm"&gt;
+  {#if status === 'idle'}
+    &lt;button class="go" onclick={load}&gt;▷ Load a 0.5B LLM onto your GPU&lt;/button&gt;
+    &lt;p class="note"&gt;One-time ~400&amp;nbsp;MB download, then it runs entirely on your device.&lt;/p&gt;
+  {:else if status === 'loading'}
+    &lt;p class="ld"&gt;Loading model… {(progress * 100).toFixed(0)}%&lt;/p&gt;
+    &lt;div class="bar"&gt;&lt;span style="width: {(progress * 100).toFixed(1)}%"&gt;&lt;/span&gt;&lt;/div&gt;
+    &lt;p class="sub"&gt;{progressText}&lt;/p&gt;
+  {:else if status === 'error'}
+    &lt;p class="err"&gt;{progressText}&lt;/p&gt;
+  {:else}
+    &lt;div class="log"&gt;
+      {#each messages as m, i (i)}
+        &lt;div class="msg {m.role}"&gt;&lt;span&gt;{m.content || '…'}&lt;/span&gt;&lt;/div&gt;
+      {/each}
+      {#if messages.length === 0}&lt;p class="hint"&gt;Ask it anything — it answers on your hardware.&lt;/p&gt;{/if}
+    &lt;/div&gt;
+    &lt;form class="row" onsubmit={(e) =&gt; { e.preventDefault(); send(); }}&gt;
+      &lt;input bind:value={input} placeholder="Type a message…" disabled={status === 'busy'} /&gt;
+      &lt;button type="submit" disabled={status === 'busy'}&gt;{status === 'busy' ? '…' : 'Send'}&lt;/button&gt;
+    &lt;/form&gt;
+  {/if}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .llm { width: min(460px, 96%); display: flex; flex-direction: column; gap: 0.8rem; }
+  .go { align-self: center; padding: 0.85rem 1.6rem; border-radius: 999px; border: none; font-weight: 700; color: #05060a; background: linear-gradient(135deg, #7c5cff, #19e3d6); cursor: pointer; }
+  .note, .sub, .hint { color: #8b93a7; font-size: 0.82rem; text-align: center; margin: 0; }
+  .ld { color: #d6dbe6; text-align: center; margin: 0; }
+  .err { color: #ff5f9e; text-align: center; }
+  .bar { height: 8px; border-radius: 999px; background: #11141f; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: linear-gradient(90deg, #7c5cff, #19e3d6); transition: width 0.2s; }
+  .log { display: flex; flex-direction: column; gap: 0.5rem; max-height: 230px; overflow-y: auto; padding: 0.4rem; }
+  .msg { padding: 0.6rem 0.85rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.5; max-width: 85%; }
+  .msg.user { align-self: flex-end; background: linear-gradient(135deg, #7c5cff, #6b4ee6); color: #fff; }
+  .msg.assistant { align-self: flex-start; background: #11141f; border: 1px solid #1b2030; color: #d6dbe6; }
+  .row { display: flex; gap: 0.5rem; }
+  .row input { flex: 1; padding: 0.7rem 1rem; border-radius: 999px; background: #11141f; border: 1px solid #2a3142; color: #f4f6fb; font: inherit; }
+  .row input:focus { outline: none; border-color: #7c5cff; }
+  .row button { padding: 0.7rem 1.3rem; border-radius: 999px; border: none; font-weight: 700; color: #05060a; background: linear-gradient(135deg, #7c5cff, #19e3d6); cursor: pointer; }
+  .row button:disabled, .row input:disabled { opacity: 0.6; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>The engine in three calls</h2>
+  <ul>
+    <li><strong>Create the engine.</strong> <code>await CreateMLCEngine(modelId, {`{
+      initProgressCallback }`})</code> fetches the weights + tokenizer, caches them, and
+      compiles the model for your GPU. The progress callback drives the loading bar — the
+      download is the only slow part, and it happens once.</li>
+    <li><strong>Stream a completion.</strong> The API mirrors OpenAI's:
+      <code>engine.chat.completions.create({`{ messages, stream: true }`})</code> returns an
+      async iterable. We <code>for await</code> over it and append each token's
+      <code>delta.content</code> to the live message — the same streaming UX as a cloud chatbot,
+      with zero network.</li>
+    <li><strong>It's just WebGPU underneath.</strong> Every matrix multiply in the transformer
+      is a WebGPU compute shader — the exact technology from our particle and fluid lessons,
+      pointed at linear algebra instead of pixels. You now understand the whole stack, top to
+      bottom.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>What this unlocks for your interfaces.</strong> Private, offline, zero-cost AI:
+      a writing assistant that never sees a server, semantic search over a user's own notes,
+      an NPC in a web game that actually converses, accessibility tools that summarize on-device.
+      Pair a streaming LLM with the cinematic motion from this course and you can build
+      interfaces that are intelligent <em>and</em> beautiful — entirely in the browser. That's
+      the frontier, and you're standing on it. There is no higher level today; from here, you
+      build the future.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  const mount = document.getElementById("llm-demo");
+  if (mount) {
+    const MODEL = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+    let engine = null, status = "idle", messages = [];
+    function render() {
+      if (status === "idle") {
+        mount.innerHTML = '<div style="text-align:center"><button class="llm-go" style="padding:.85rem 1.6rem;border-radius:999px;border:none;font-weight:700;color:#05060a;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer">▷ Load a 0.5B LLM onto your GPU</button><p style="color:#8b93a7;font-size:.82rem;margin:.6rem 0 0">One-time ~400&nbsp;MB download, then runs entirely on your device.</p></div>';
+        mount.querySelector(".llm-go").addEventListener("click", load);
+      }
+    }
+    function setLoading(p, txt) {
+      mount.innerHTML = '<div style="width:min(440px,94%);text-align:center"><p style="color:#d6dbe6;margin:0 0 .5rem">Loading model… ' + Math.round(p * 100) + '%</p><div style="height:8px;border-radius:999px;background:#11141f;overflow:hidden"><span style="display:block;height:100%;width:' + (p * 100).toFixed(1) + '%;background:linear-gradient(90deg,#7c5cff,#19e3d6)"></span></div><p style="color:#8b93a7;font-size:.78rem;margin:.5rem 0 0">' + (txt || "") + '</p></div>';
+    }
+    async function load() {
+      if (!navigator.gpu) { mount.innerHTML = '<p style="color:#ff5f9e">WebGPU is required and not available in this browser.</p>'; return; }
+      status = "loading"; setLoading(0, "");
+      try {
+        const mod = await import("https://esm.run/@mlc-ai/web-llm");
+        engine = await mod.CreateMLCEngine(MODEL, { initProgressCallback: (r) => setLoading(r.progress, r.text) });
+        status = "ready"; renderChat();
+      } catch (e) { mount.innerHTML = '<p style="color:#ff5f9e">Failed to load (needs WebGPU + bandwidth).</p>'; }
+    }
+    function renderChat() {
+      mount.innerHTML =
+        '<div style="width:min(460px,96%);display:flex;flex-direction:column;gap:.8rem">' +
+        '<div class="llm-log" style="display:flex;flex-direction:column;gap:.5rem;max-height:220px;overflow-y:auto;padding:.3rem"></div>' +
+        '<form class="llm-row" style="display:flex;gap:.5rem"><input class="llm-in" placeholder="Type a message…" style="flex:1;padding:.7rem 1rem;border-radius:999px;background:#11141f;border:1px solid #2a3142;color:#f4f6fb"><button style="padding:.7rem 1.3rem;border-radius:999px;border:none;font-weight:700;color:#05060a;background:linear-gradient(135deg,#7c5cff,#19e3d6);cursor:pointer">Send</button></form></div>';
+      mount.querySelector(".llm-row").addEventListener("submit", send);
+      drawLog();
+    }
+    function drawLog() {
+      const log = mount.querySelector(".llm-log"); if (!log) return;
+      log.innerHTML = messages.map((m) =>
+        '<div style="padding:.6rem .85rem;border-radius:12px;max-width:85%;align-self:' + (m.role === "user" ? "flex-end;background:#7c5cff;color:#fff" : "flex-start;background:#11141f;border:1px solid #1b2030;color:#d6dbe6") + '">' + (m.content || "…") + "</div>"
+      ).join("") || '<p style="color:#8b93a7;text-align:center;font-size:.85rem">Ask it anything — it answers on your hardware.</p>';
+      log.scrollTop = log.scrollHeight;
+    }
+    async function send(e) {
+      e.preventDefault();
+      const input = mount.querySelector(".llm-in"); const text = input.value.trim();
+      if (!text || status !== "ready") return;
+      input.value = ""; status = "busy";
+      messages.push({ role: "user", content: text }, { role: "assistant", content: "" }); drawLog();
+      try {
+        const stream = await engine.chat.completions.create({ messages: messages.slice(0, -1), stream: true, temperature: 0.7, max_tokens: 256 });
+        let acc = "";
+        for await (const chunk of stream) { acc += chunk.choices?.[0]?.delta?.content ?? ""; messages[messages.length - 1].content = acc; drawLog(); }
+      } catch (err) { messages[messages.length - 1].content = "(generation error)"; drawLog(); }
+      status = "ready";
+    }
+    render();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M19 Endgame</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The À-Trous Ray-Tracing Denoiser — MOTION</title>
+  <meta name="description" content="A 1-sample ray trace is pure static. Real-time ray tracing only works because of the denoiser — an edge-aware filter that blurs the noise while preserving every sharp edge. Here's the à-trous denoiser that ships in every RT game." />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="../assets/course.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-slug="j2-denoiser">
+  <div class="progress-rail"><span></span></div>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html"><span class="dot"></span> MOTION</a>
+      <nav>
+        <a href="../index.html#curriculum">Curriculum</a>
+        <a href="../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <article class="lesson container">
+      <header style="max-width: var(--measure); margin-bottom: var(--space-lg);">
+        <p class="eyebrow" data-reveal>M19 · Endgame</p>
+        <h1 class="hero__title" style="font-size: var(--step-4); max-width: 20ch;" data-reveal="60">The À-Trous Ray-Tracing Denoiser</h1>
+        <p class="hero__lead" data-reveal="120">A 1-sample ray trace is pure static. Real-time ray tracing only works because of the denoiser — an edge-aware filter that blurs the noise while preserving every sharp edge. Here's the à-trous denoiser that ships in every RT game.</p>
+      </header>
+
+      <div class="lesson__body prose">
+  <p data-reveal>
+    Our path tracer converged by averaging thousands of frames. Games can't wait that long — they
+    render <em>one</em> noisy sample and clean it instantly with a <strong>denoiser</strong>. The
+    workhorse is the <strong>à-trous (edge-aware) wavelet filter</strong>: a smart blur that
+    refuses to cross edges, guided by per-pixel <strong>normals and object IDs</strong>. Drag the
+    divider to compare the raw noise (left) with the denoised result (right).
+  </p>
+
+  <h2>Noise in, clean out</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · à-trous denoiser · drag the divider</span>
+      <canvas id="dn-canvas" style="width:100%;height:360px;display:block"></canvas>
+    </div>
+    <div class="codepanel" data-file="src/lib/Denoiser.svelte">
+        <div class="codepanel__bar">
+          <span class="codepanel__dots"><i></i><i></i><i></i></span>
+          <span class="codepanel__file">src/lib/Denoiser.svelte</span>
+          <button class="codepanel__copy" type="button" aria-label="Copy code">Copy</button>
+        </div>
+        <pre class="codepanel__source"><code>&lt;script lang="ts"&gt;
+  import * as THREE from 'three';
+  import type { Attachment } from 'svelte/attachments';
+
+  // The à-trous edge-aware denoiser — the trick that makes real-time ray tracing
+  // possible. A 1-sample path trace is pure noise; this filter blurs it while
+  // refusing to cross edges, guided by per-pixel normals &amp; object IDs. We render
+  // a deliberately-noisy analytic scene, then run a few wavelet passes. Drag the
+  // divider to compare noisy (left) vs denoised (right).
+  const SCENE = /* glsl */ `
+    vec3 RO = vec3(0.0, 1.2, 4.0);
+    void hit(vec3 ro, vec3 rd, out float t, out vec3 n, out float id, out vec3 alb) {
+      t = 1e9; id = -1.0; n = vec3(0.0); alb = vec3(0.0);
+      // ground plane y = 0
+      if (rd.y &lt; -0.0001) { float tp = -ro.y / rd.y; if (tp &gt; 0.001 &amp;&amp; tp &lt; t) { t = tp; vec3 p = ro + rd*tp; n = vec3(0.0,1.0,0.0); id = 0.0; alb = vec3(0.45) + 0.1*mod(floor(p.x)+floor(p.z),2.0); } }
+      vec4 sp[3]; sp[0]=vec4(-1.0,0.5,0.0,0.5); sp[1]=vec4(0.0,0.5,0.0,0.5); sp[2]=vec4(1.0,0.5,0.0,0.5);
+      vec3 cols[3]; cols[0]=vec3(0.9,0.3,0.4); cols[1]=vec3(0.95,0.95,1.0); cols[2]=vec3(0.3,0.55,0.95);
+      for (int i = 0; i &lt; 3; i++) {
+        vec3 oc = ro - sp[i].xyz; float b = dot(oc, rd); float c = dot(oc,oc) - sp[i].w*sp[i].w;
+        float disc = b*b - c; if (disc &lt; 0.0) continue; float ts = -b - sqrt(disc);
+        if (ts &gt; 0.001 &amp;&amp; ts &lt; t) { t = ts; vec3 p = ro + rd*ts; n = normalize(p - sp[i].xyz); id = float(i+1); alb = cols[i]; }
+      }
+    }
+    vec3 shadeClean(vec2 uv, float aspect) {
+      vec3 rd = normalize(vec3((uv*2.0-1.0)*vec2(aspect,1.0), -1.6));
+      float t; vec3 n; float id; vec3 alb; hit(RO, rd, t, n, id, alb);
+      if (id &lt; 0.0) return mix(vec3(0.06,0.08,0.13), vec3(0.20,0.30,0.45), uv.y);
+      vec3 L = normalize(vec3(0.6,0.85,0.35)); vec3 p = RO + rd*t;
+      float ts; vec3 sn; float sid; vec3 sa; hit(p + n*0.002, L, ts, sn, sid, sa);
+      float sh = (sid &gt;= 0.0) ? 0.3 : 1.0;
+      float diff = max(dot(n, L), 0.0);
+      return alb * (0.18 + diff * sh) + pow(max(dot(reflect(rd,n), L),0.0), 32.0) * 0.4;
+    }
+    vec4 guide(vec2 uv, float aspect) {
+      vec3 rd = normalize(vec3((uv*2.0-1.0)*vec2(aspect,1.0), -1.6));
+      float t; vec3 n; float id; vec3 alb; hit(RO, rd, t, n, id, alb);
+      return vec4(n, id);
+    }
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+  `;
+
+  const denoiser: Attachment&lt;HTMLCanvasElement&gt; = (canvas) =&gt; {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setPixelRatio(1);
+    const fsScene = new THREE.Scene();
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+    fsScene.add(quad);
+    const vert = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+    const noiseMat = new THREE.ShaderMaterial({
+      uniforms: { uFrame: { value: 0 }, uAspect: { value: 1 } },
+      vertexShader: vert,
+      fragmentShader: `varying vec2 vUv; uniform float uFrame; uniform float uAspect;` + SCENE +
+        `void main(){ vec3 c = shadeClean(vUv, uAspect); float r = hash(vUv*711.0 + uFrame); c *= 0.3 + 1.4*r; gl_FragColor = vec4(c, 1.0); }`
+    });
+    const atrousMat = new THREE.ShaderMaterial({
+      uniforms: { uInput: { value: null as THREE.Texture | null }, uStep: { value: 1 }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 } },
+      vertexShader: vert,
+      fragmentShader: `varying vec2 vUv; uniform sampler2D uInput; uniform float uStep; uniform vec2 uTexel; uniform float uAspect;` + SCENE +
+        `void main(){
+          vec3 cC = texture2D(uInput, vUv).rgb; vec4 gC = guide(vUv, uAspect);
+          vec3 sum = vec3(0.0); float wsum = 0.0;
+          for (int y=-1; y&lt;=1; y++) for (int x=-1; x&lt;=1; x++) {
+            vec2 off = vec2(float(x), float(y)) * uStep * uTexel;
+            vec3 cN = texture2D(uInput, vUv + off).rgb; vec4 gN = guide(vUv + off, uAspect);
+            float wN = pow(max(dot(gC.xyz, gN.xyz), 0.0), 32.0);
+            float wId = (abs(gC.w - gN.w) &lt; 0.5) ? 1.0 : 0.05;
+            float wC = exp(-distance(cC, cN) * 4.0);
+            float k = (x==0&amp;&amp;y==0) ? 1.0 : 0.5;
+            float w = k * wN * wId * wC;
+            sum += cN * w; wsum += w;
+          }
+          gl_FragColor = vec4(sum / max(wsum, 1e-4), 1.0);
+        }`
+    });
+    const showMat = new THREE.ShaderMaterial({
+      uniforms: { uNoisy: { value: null as THREE.Texture | null }, uClean: { value: null as THREE.Texture | null }, uSplit: { value: 0.5 } },
+      vertexShader: vert,
+      fragmentShader: `varying vec2 vUv; uniform sampler2D uNoisy; uniform sampler2D uClean; uniform float uSplit;
+        void main(){ vec3 c = vUv.x &lt; uSplit ? texture2D(uNoisy, vUv).rgb : texture2D(uClean, vUv).rgb;
+          c = pow(c, vec3(0.4545));
+          if (abs(vUv.x - uSplit) &lt; 0.0015) c = vec3(1.0);
+          gl_FragColor = vec4(c, 1.0); }`
+    });
+
+    const opts: THREE.RenderTargetOptions = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false };
+    let noisy = new THREE.WebGLRenderTarget(2, 2, opts);
+    let rtA = new THREE.WebGLRenderTarget(2, 2, opts);
+    let rtB = new THREE.WebGLRenderTarget(2, 2, opts);
+
+    const resize = () =&gt; {
+      const w = Math.max(2, Math.floor(canvas.clientWidth));
+      const h = Math.max(2, Math.floor(canvas.clientHeight));
+      renderer.setSize(w, h, false);
+      noisy.setSize(w, h); rtA.setSize(w, h); rtB.setSize(w, h);
+      const a = w / h;
+      noiseMat.uniforms.uAspect.value = a; atrousMat.uniforms.uAspect.value = a;
+      atrousMat.uniforms.uTexel.value.set(1 / w, 1 / h);
+    };
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+
+    let split = 0.5;
+    const onMove = (e: PointerEvent) =&gt; {
+      if (e.buttons === 0) return;
+      const r = canvas.getBoundingClientRect();
+      split = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    };
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerdown', onMove);
+
+    const ITER = 5;
+    let raf = 0;
+    let frame = 0;
+    const tick = () =&gt; {
+      frame++;
+      // 1. render a noisy frame
+      noiseMat.uniforms.uFrame.value = frame;
+      quad.material = noiseMat;
+      renderer.setRenderTarget(noisy);
+      renderer.render(fsScene, cam);
+      // 2. à-trous denoise passes (step doubles each time)
+      let read = noisy;
+      for (let k = 0; k &lt; ITER; k++) {
+        const write = k % 2 === 0 ? rtA : rtB;
+        atrousMat.uniforms.uInput.value = read.texture;
+        atrousMat.uniforms.uStep.value = Math.pow(2, k);
+        quad.material = atrousMat;
+        renderer.setRenderTarget(write);
+        renderer.render(fsScene, cam);
+        read = write;
+      }
+      // 3. show noisy | denoised wipe
+      showMat.uniforms.uNoisy.value = noisy.texture;
+      showMat.uniforms.uClean.value = read.texture;
+      showMat.uniforms.uSplit.value = split;
+      quad.material = showMat;
+      renderer.setRenderTarget(null);
+      renderer.render(fsScene, cam);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () =&gt; {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerdown', onMove);
+      noisy.dispose(); rtA.dispose(); rtB.dispose();
+      noiseMat.dispose(); atrousMat.dispose(); showMat.dispose();
+      quad.geometry.dispose();
+      renderer.dispose();
+    };
+  };
+&lt;/script&gt;
+
+&lt;canvas class="viewport" {@attach denoiser}&gt;&lt;/canvas&gt;
+
+&lt;style&gt;
+  .viewport { width: 100%; height: 100%; min-height: 320px; display: block; border-radius: 12px; background: #05060a; cursor: ew-resize; }
+&lt;/style&gt;</code></pre>
+        <div class="codepanel__editor"></div>
+      </div>
+  </div>
+
+  <h2>How an edge-aware blur knows where the edges are</h2>
+  <ul>
+    <li><strong>A guided blur.</strong> A plain blur would smear the whole image to mush. The
+      à-trous filter weights each neighbouring pixel by how <em>similar</em> it is — comparing
+      surface normal, object ID and colour. Neighbours on the same surface get full weight;
+      those across an edge get almost none. Noise averages away; silhouettes stay razor-sharp.</li>
+    <li><strong>"À-trous" = with holes.</strong> Instead of one big expensive blur, we run several
+      cheap 3×3 passes, <em>doubling the tap spacing</em> each time (1, 2, 4, 8, 16 px). A few
+      passes reach a huge radius for a fraction of the cost — the wavelet trick that makes it
+      real-time.</li>
+    <li><strong>The guide is free here.</strong> Because our scene is analytic (a few spheres),
+      the denoise shader recomputes the exact normal and ID at every tap with a ray cast — no
+      noise in the guide. In a real renderer these come from a <em>G-buffer</em> the path tracer
+      writes alongside the noisy colour.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M213.85,125.46l-112,120a8,8,0,0,1-13.69-7L109.25,141H37.74a8,8,0,0,1-6.59-12.69l112-120a8,8,0,0,1,13.69,7L146.75,115h71.51a8,8,0,0,1,6.59,12.46Z"/></svg></span>
+    <div class="callout__body">
+      <strong>This is the whole game in real-time ray tracing.</strong> Trace one noisy sample,
+      reproject last frame's result for temporal stability (SVGF), then run à-trous to clean it —
+      that's how an RTX game ray-traces at 60fps. The cutting edge replaces the hand-tuned
+      edge-stopping weights with a small <strong>neural network</strong> (NVIDIA's OptiX / DLSS Ray
+      Reconstruction): a learned denoiser, trainable end-to-end with the same differentiable-render
+      machinery behind Gaussian splatting. You've now built the foundation of it — and with that,
+      you've touched every layer of modern graphics, from a CSS hover to a learned denoiser.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  const canvas = document.getElementById("dn-canvas");
+  if (canvas) {
+    const SCENE =
+      "vec3 RO=vec3(0.0,1.2,4.0); void hit(vec3 ro, vec3 rd, out float t, out vec3 n, out float id, out vec3 alb){ t=1e9; id=-1.0; n=vec3(0.0); alb=vec3(0.0); if(rd.y<-0.0001){ float tp=-ro.y/rd.y; if(tp>0.001&&tp<t){ t=tp; vec3 p=ro+rd*tp; n=vec3(0.0,1.0,0.0); id=0.0; alb=vec3(0.45)+0.1*mod(floor(p.x)+floor(p.z),2.0); } } vec4 sp[3]; sp[0]=vec4(-1.0,0.5,0.0,0.5); sp[1]=vec4(0.0,0.5,0.0,0.5); sp[2]=vec4(1.0,0.5,0.0,0.5); vec3 cols[3]; cols[0]=vec3(0.9,0.3,0.4); cols[1]=vec3(0.95,0.95,1.0); cols[2]=vec3(0.3,0.55,0.95); for(int i=0;i<3;i++){ vec3 oc=ro-sp[i].xyz; float b=dot(oc,rd); float c=dot(oc,oc)-sp[i].w*sp[i].w; float disc=b*b-c; if(disc<0.0) continue; float ts=-b-sqrt(disc); if(ts>0.001&&ts<t){ t=ts; vec3 p=ro+rd*ts; n=normalize(p-sp[i].xyz); id=float(i+1); alb=cols[i]; } } }" +
+      "vec3 shadeClean(vec2 uv, float aspect){ vec3 rd=normalize(vec3((uv*2.0-1.0)*vec2(aspect,1.0),-1.6)); float t; vec3 n; float id; vec3 alb; hit(RO,rd,t,n,id,alb); if(id<0.0) return mix(vec3(0.06,0.08,0.13),vec3(0.20,0.30,0.45),uv.y); vec3 L=normalize(vec3(0.6,0.85,0.35)); vec3 p=RO+rd*t; float ts; vec3 sn; float sid; vec3 sa; hit(p+n*0.002,L,ts,sn,sid,sa); float sh=(sid>=0.0)?0.3:1.0; float diff=max(dot(n,L),0.0); return alb*(0.18+diff*sh)+pow(max(dot(reflect(rd,n),L),0.0),32.0)*0.4; }" +
+      "vec4 guide(vec2 uv, float aspect){ vec3 rd=normalize(vec3((uv*2.0-1.0)*vec2(aspect,1.0),-1.6)); float t; vec3 n; float id; vec3 alb; hit(RO,rd,t,n,id,alb); return vec4(n,id); }" +
+      "float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }";
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false }); renderer.setPixelRatio(1);
+    const fsScene = new THREE.Scene(); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); fsScene.add(quad);
+    const vert = "varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }";
+    const noiseMat = new THREE.ShaderMaterial({ uniforms: { uFrame: { value: 0 }, uAspect: { value: 1 } }, vertexShader: vert, fragmentShader: "varying vec2 vUv; uniform float uFrame; uniform float uAspect;" + SCENE + "void main(){ vec3 c=shadeClean(vUv,uAspect); float r=hash(vUv*711.0+uFrame); c*=0.3+1.4*r; gl_FragColor=vec4(c,1.0); }" });
+    const atrousMat = new THREE.ShaderMaterial({ uniforms: { uInput: { value: null }, uStep: { value: 1 }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 } }, vertexShader: vert, fragmentShader: "varying vec2 vUv; uniform sampler2D uInput; uniform float uStep; uniform vec2 uTexel; uniform float uAspect;" + SCENE + "void main(){ vec3 cC=texture2D(uInput,vUv).rgb; vec4 gC=guide(vUv,uAspect); vec3 sum=vec3(0.0); float wsum=0.0; for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){ vec2 off=vec2(float(x),float(y))*uStep*uTexel; vec3 cN=texture2D(uInput,vUv+off).rgb; vec4 gN=guide(vUv+off,uAspect); float wN=pow(max(dot(gC.xyz,gN.xyz),0.0),32.0); float wId=(abs(gC.w-gN.w)<0.5)?1.0:0.05; float wC=exp(-distance(cC,cN)*4.0); float k=(x==0&&y==0)?1.0:0.5; float w=k*wN*wId*wC; sum+=cN*w; wsum+=w; } gl_FragColor=vec4(sum/max(wsum,1e-4),1.0); }" });
+    const showMat = new THREE.ShaderMaterial({ uniforms: { uNoisy: { value: null }, uClean: { value: null }, uSplit: { value: 0.5 } }, vertexShader: vert, fragmentShader: "varying vec2 vUv; uniform sampler2D uNoisy; uniform sampler2D uClean; uniform float uSplit; void main(){ vec3 c=vUv.x<uSplit?texture2D(uNoisy,vUv).rgb:texture2D(uClean,vUv).rgb; c=pow(c,vec3(0.4545)); if(abs(vUv.x-uSplit)<0.0015) c=vec3(1.0); gl_FragColor=vec4(c,1.0); }" });
+    const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false };
+    let noisy = new THREE.WebGLRenderTarget(2, 2, opts), rtA = new THREE.WebGLRenderTarget(2, 2, opts), rtB = new THREE.WebGLRenderTarget(2, 2, opts);
+    function resize() { const w = Math.max(2, Math.floor(canvas.clientWidth)), h = Math.max(2, Math.floor(canvas.clientHeight)); renderer.setSize(w, h, false); noisy.setSize(w, h); rtA.setSize(w, h); rtB.setSize(w, h); const a = w / h; noiseMat.uniforms.uAspect.value = a; atrousMat.uniforms.uAspect.value = a; atrousMat.uniforms.uTexel.value.set(1 / w, 1 / h); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    let split = 0.5;
+    function onMove(e) { if (e.buttons === 0) return; const r = canvas.getBoundingClientRect(); split = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); }
+    canvas.addEventListener("pointermove", onMove); canvas.addEventListener("pointerdown", onMove);
+    let frame = 0;
+    function tick() {
+      frame++; noiseMat.uniforms.uFrame.value = frame; quad.material = noiseMat; renderer.setRenderTarget(noisy); renderer.render(fsScene, cam);
+      let read = noisy;
+      for (let k = 0; k < 5; k++) { const write = k % 2 === 0 ? rtA : rtB; atrousMat.uniforms.uInput.value = read.texture; atrousMat.uniforms.uStep.value = Math.pow(2, k); quad.material = atrousMat; renderer.setRenderTarget(write); renderer.render(fsScene, cam); read = write; }
+      showMat.uniforms.uNoisy.value = noisy.texture; showMat.uniforms.uClean.value = read.texture; showMat.uniforms.uSplit.value = split; quad.material = showMat; renderer.setRenderTarget(null); renderer.render(fsScene, cam);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
+
+
+      <nav class="pager" data-pager aria-label="Lesson navigation"></nav>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>MOTION · M19 Endgame</span>
+      <span class="muted">Use ← / → to move between lessons.</span>
+    </div>
+  </footer>
+
+  <script src="../assets/lessons.js"></script>
+  <script src="../assets/course.js" defer></script>
+</body>
+</html>

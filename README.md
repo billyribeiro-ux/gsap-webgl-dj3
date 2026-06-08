@@ -92,10 +92,12 @@ M16 The Abyss — beyond real‑time (volumetric cloud raymarching, and a progre
 path tracer with true global illumination) ·
 M17 Mastery — distinguished rendering (a spectral/FFT‑style ocean, and 3D Gaussian splatting) ·
 M18 The 2026 Frontier — on‑device AI (Transformers.js v4 neural nets on WebGPU), the modern
-Three.js WebGPURenderer + TSL node shaders, and Svelte's newest async + SvelteKit remote functions.
+Three.js WebGPURenderer + TSL node shaders, and Svelte's newest async + SvelteKit remote functions ·
+M19 Endgame — a full LLM in the browser (WebLLM), correctly depth‑sorted Gaussian splatting,
+and the à‑trous edge‑aware denoiser behind real‑time ray tracing.
 
-**61 lessons across 18 modules**, every one fully authored with a live demo and
-copy‑paste TypeScript code — and **59 runnable routes** in the reference app. The app's
+**64 lessons across 19 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **62 runnable routes** in the reference app. The app's
 landing page groups every demo by module, and all navigations use the View Transitions API.
 
 ---

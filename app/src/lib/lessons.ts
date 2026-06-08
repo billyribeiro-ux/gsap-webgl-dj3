@@ -66,7 +66,10 @@ export const lessons: Lesson[] = [
   { slug: 'splatting', title: 'Gaussian Splatting', module: 'Mastery', blurb: 'The 2023 radiance-field frontier.' },
   { slug: 'on-device-ai', title: 'On-Device AI', module: '2026 Frontier', blurb: 'A neural net on your GPU, live.' },
   { slug: 'tsl', title: 'WebGPURenderer + TSL', module: '2026 Frontier', blurb: 'Modern Three.js node shaders.' },
-  { slug: 'svelte-async', title: 'Async & Remote Functions', module: '2026 Frontier', blurb: "Svelte/Kit's newest data APIs." }
+  { slug: 'svelte-async', title: 'Async & Remote Functions', module: '2026 Frontier', blurb: "Svelte/Kit's newest data APIs." },
+  { slug: 'webllm', title: 'LLM in the Browser', module: 'Endgame', blurb: 'A full language model on your GPU.' },
+  { slug: 'sorted-splatting', title: 'Sorted Splatting', module: 'Endgame', blurb: 'Depth-sorted, correct transparency.' },
+  { slug: 'denoiser', title: 'À-Trous Denoiser', module: 'Endgame', blurb: 'The filter behind real-time RT.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

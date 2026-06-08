@@ -203,6 +203,16 @@ window.COURSE = {
         { slug: "i1-tsl", title: "WebGPURenderer + TSL — Modern Three.js Shading", status: "live" },
         { slug: "i2-svelte-async", title: "Svelte Async & SvelteKit Remote Functions", status: "live" }
       ]
+    },
+    {
+      num: "M19",
+      title: "Endgame",
+      desc: "The lateral frontier: an LLM in the browser, correctly-sorted splatting, and a ray-tracing denoiser.",
+      lessons: [
+        { slug: "j0-webllm", title: "An LLM in Your Browser (WebLLM)", status: "live" },
+        { slug: "j1-sorted-splatting", title: "Sorted Gaussian Splatting — Correct Transparency", status: "live" },
+        { slug: "j2-denoiser", title: "The À-Trous Ray-Tracing Denoiser", status: "live" }
+      ]
     }
   ]
 };

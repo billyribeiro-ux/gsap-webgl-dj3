@@ -86,6 +86,9 @@ const LIBS = {
   "i0-on-device-ai": [],
   "i1-tsl": ["tsl"],
   "i2-svelte-async": [],
+  "j0-webllm": [],
+  "j1-sorted-splatting": ["three"],
+  "j2-denoiser": ["three"],
   "00-welcome": [],
   "01-principles-of-motion": []
 };
