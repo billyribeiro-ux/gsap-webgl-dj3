@@ -81,6 +81,8 @@ const LIBS = {
   "e3-physics": ["three", "cannon"],
   "g0-volumetrics": ["three"],
   "g1-pathtracer": [],
+  "h0-ocean": ["three"],
+  "h1-splatting": ["three"],
   "00-welcome": [],
   "01-principles-of-motion": []
 };

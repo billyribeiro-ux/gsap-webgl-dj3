@@ -89,10 +89,11 @@ M14 The Bleeding Edge (raymarched SDFs, GPU reaction‑diffusion, GPGPU particle
 M15 WebGPU (WGSL pipelines, a million‑particle compute shader, boids, N‑body gravity,
 Conway's Life, a 200k‑agent slime‑mould, and a real‑time Navier‑Stokes fluid solver) ·
 M16 The Abyss — beyond real‑time (volumetric cloud raymarching, and a progressive WebGPU
-path tracer with true global illumination).
+path tracer with true global illumination) ·
+M17 Mastery — distinguished rendering (a spectral/FFT‑style ocean, and 3D Gaussian splatting).
 
-**56 lessons across 16 modules**, every one fully authored with a live demo and
-copy‑paste TypeScript code — and **54 runnable routes** in the reference app. The app's
+**58 lessons across 17 modules**, every one fully authored with a live demo and
+copy‑paste TypeScript code — and **56 runnable routes** in the reference app. The app's
 landing page groups every demo by module, and all navigations use the View Transitions API.
 
 ---

@@ -184,6 +184,15 @@ window.COURSE = {
         { slug: "g0-volumetrics", title: "Volumetric Raymarching — Clouds & Light", status: "live" },
         { slug: "g1-pathtracer", title: "A Real-Time Path Tracer — True Global Illumination", status: "live" }
       ]
+    },
+    {
+      num: "M17",
+      title: "Mastery — Distinguished Rendering",
+      desc: "The graphics-engineering summit: a spectral ocean and 3D Gaussian splatting.",
+      lessons: [
+        { slug: "h0-ocean", title: "A Spectral Ocean (FFT Waves)", status: "live" },
+        { slug: "h1-splatting", title: "3D Gaussian Splatting", status: "live" }
+      ]
     }
   ]
 };

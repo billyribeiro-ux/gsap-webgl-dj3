@@ -61,7 +61,9 @@ export const lessons: Lesson[] = [
   { slug: 'slime', title: 'Slime Mould', module: 'WebGPU', blurb: '200k agents grow living networks.' },
   { slug: 'fluid', title: 'Fluid Solver', module: 'WebGPU', blurb: 'Navier-Stokes ink in water.' },
   { slug: 'volumetrics', title: 'Volumetric Clouds', module: 'The Abyss', blurb: 'Raymarched participating media.' },
-  { slug: 'pathtracer', title: 'Path Tracer', module: 'The Abyss', blurb: 'Real global illumination, live.' }
+  { slug: 'pathtracer', title: 'Path Tracer', module: 'The Abyss', blurb: 'Real global illumination, live.' },
+  { slug: 'ocean', title: 'Spectral Ocean', module: 'Mastery', blurb: 'FFT-style waves + water shading.' },
+  { slug: 'splatting', title: 'Gaussian Splatting', module: 'Mastery', blurb: 'The 2023 radiance-field frontier.' }
 ];
 
 export function neighbours(slug: string): { prev?: Lesson; next?: Lesson } {

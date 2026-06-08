@@ -1,0 +1,94 @@
+<!--lead: A believable ocean is the ultimate test of a graphics engineer — it's pure spectral synthesis. We build the sea from a whole spectrum of waves drawn from an oceanographic model, displace a mesh, and shade the water with fresnel, sun glints and foam.-->
+
+<div class="lesson__body prose">
+  <p data-reveal>
+    Water is the hardest thing to fake and the most rewarding to get right. The secret of
+    every film and AAA-game ocean is that the surface isn't one wave — it's a statistical
+    <strong>spectrum</strong> of thousands, their amplitudes and directions sampled from an
+    oceanographic model (Phillips / JONSWAP) and summed every frame. Production does that
+    sum with an <strong>FFT</strong>; here we sum ~28 <strong>Gerstner waves</strong>
+    directly, which is the same idea at a teachable scale — and it already looks like the
+    sea. Drag to look across the water.
+  </p>
+
+  <h2>The open ocean</h2>
+  <div class="workbench" data-reveal>
+    <div class="stage" data-demo style="padding:0">
+      <span class="stage__label">Live demo · spectral ocean · drag to orbit</span>
+      <canvas id="ocean-canvas" style="width:100%;height:360px;display:block"></canvas>
+    </div>
+    <!--code file="fx/Ocean.svelte" name="src/lib/Ocean.svelte"-->
+  </div>
+
+  <h2>What makes it read as water</h2>
+  <ul>
+    <li><strong>The spectrum.</strong> Each wave's amplitude falls off with its wavelength
+      and is concentrated along the wind direction — that's the Phillips spectrum in
+      miniature. Sampling many wavelengths and directions is what gives the surface its rich,
+      non-repeating chop instead of a tiled, obvious ripple.</li>
+    <li><strong>Gerstner displacement.</strong> Unlike a simple sine, a Gerstner wave moves
+      vertices <em>horizontally</em> too, bunching them at the crests — that's what creates the
+      sharp peaks and broad troughs of real swell. We sum them per vertex and take a
+      finite-difference normal for lighting.</li>
+    <li><strong>The water shader.</strong> Three ingredients sell it: a strong
+      <strong>fresnel</strong> term (water is mirror-like at grazing angles, dark looking
+      straight down), a <strong>sky reflection</strong> along the reflected view ray, and a
+      tight <strong>sun glint</strong> (a high-exponent specular). Add <strong>foam</strong>
+      where wave steepness pinches the crests and the eye is convinced.</li>
+  </ul>
+
+  <div class="callout callout--build" data-reveal>
+    <span class="callout__icon"><svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,48a12,12,0,1,1-12,12A12,12,0,0,1,120,72Zm20,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg></span>
+    <div class="callout__body">
+      <strong>Why production reaches for the FFT.</strong> Summing N waves per vertex is
+      O(N) — fine for 28, far too slow for the thousands you need for true detail. An FFT
+      evaluates the entire spectrum in O(N log N) into a tileable height field, then you add
+      detail with multiple tiles at different scales. The deeper craft layers on top:
+      horizontal displacement for choppiness, a <em>Jacobian</em>-based foam mask, subsurface
+      scattering for that turquoise glow, and screen-space reflections. But the foundation is
+      exactly this — a spectrum, summed and shaded. You're rendering the sea.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  const canvas = document.getElementById("ocean-canvas");
+  if (canvas) {
+    const WAVES = 28;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 400);
+    camera.position.set(0, 14, 34);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true; controls.target.set(0, 0, 0); controls.minPolarAngle = 0.3; controls.maxPolarAngle = 1.45; controls.enablePan = false;
+    const waveA = [], waveB = [], windAngle = 0.5;
+    for (let i = 0; i < WAVES; i++) {
+      const wl = 32 * Math.pow(0.8, i), k = (2 * Math.PI) / wl, ang = windAngle + (Math.random() - 0.5) * 1.5;
+      const align = Math.pow(Math.max(0, Math.cos(ang - windAngle)), 2), amp = 0.16 * Math.sqrt(wl) * (0.4 + 0.6 * align);
+      waveA.push(new THREE.Vector4(Math.cos(ang), Math.sin(ang), k, amp));
+      waveB.push(new THREE.Vector4(Math.sqrt(9.81 * k), 0.7 / (k * amp * WAVES * 0.5 + 1.0), 0, 0));
+    }
+    const uniforms = { uTime: { value: 0 }, uWaveA: { value: waveA }, uWaveB: { value: waveB }, uCam: { value: camera.position } };
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader:
+        "uniform float uTime; uniform vec4 uWaveA[" + WAVES + "]; uniform vec4 uWaveB[" + WAVES + "]; varying vec3 vWorld; varying vec3 vNormal; varying float vFoam;" +
+        "vec3 gerstner(vec2 p, out float crest){ vec3 d=vec3(0.0); crest=0.0; for(int i=0;i<" + WAVES + ";i++){ vec4 a=uWaveA[i]; vec4 b=uWaveB[i]; float f=a.z*dot(a.xy,p)-b.x*uTime; float c=cos(f); float s=sin(f); d.x+=b.y*a.w*a.x*c; d.z+=b.y*a.w*a.y*c; d.y+=a.w*s; crest+=b.y*a.z*a.w*s; } return d; }" +
+        "void main(){ vec2 xz=position.xz; float e=0.4; float t; vec3 d0=gerstner(xz,t); float foamN=t; vec3 dX=gerstner(xz+vec2(e,0.0),t); vec3 dZ=gerstner(xz+vec2(0.0,e),t); vec3 P0=vec3(xz.x,0.0,xz.y)+d0; vec3 PX=vec3(xz.x+e,0.0,xz.y)+dX; vec3 PZ=vec3(xz.x,0.0,xz.y+e)+dZ; vNormal=normalize(cross(PZ-P0,PX-P0)); vWorld=P0; vFoam=smoothstep(0.6,1.4,foamN); gl_Position=projectionMatrix*modelViewMatrix*vec4(P0,1.0); }",
+      fragmentShader:
+        "uniform vec3 uCam; varying vec3 vWorld; varying vec3 vNormal; varying float vFoam;" +
+        "void main(){ vec3 N=normalize(vNormal); vec3 V=normalize(uCam-vWorld); vec3 sun=normalize(vec3(0.6,0.55,-0.4)); float fres=mix(0.02,1.0,pow(clamp(1.0-dot(N,V),0.0,1.0),5.0)); vec3 refl=reflect(-V,N); vec3 sky=mix(vec3(0.55,0.72,0.92),vec3(0.18,0.34,0.55),clamp(refl.y,0.0,1.0)); vec3 deep=mix(vec3(0.0,0.10,0.16),vec3(0.0,0.22,0.32),clamp(N.y,0.0,1.0)); vec3 col=mix(deep,sky,fres); vec3 H=normalize(V+sun); col+=pow(max(dot(N,H),0.0),220.0)*vec3(1.0,0.95,0.8)*1.6; col=mix(col,vec3(0.9,0.95,1.0),vFoam*0.8); float haze=1.0-exp(-length(uCam-vWorld)*0.012); col=mix(col,vec3(0.62,0.78,0.92),haze*0.6); gl_FragColor=vec4(col,1.0); }"
+    });
+    const geo = new THREE.PlaneGeometry(120, 120, 220, 220); geo.rotateX(-Math.PI / 2);
+    scene.add(new THREE.Mesh(geo, material));
+    function resize() { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(canvas); resize();
+    const clock = new THREE.Clock();
+    const reduce = window.MOTION_REDUCED;
+    function tick() { uniforms.uTime.value = reduce ? 2.0 : clock.getElapsedTime(); controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick); }
+    tick();
+  }
+</script>
