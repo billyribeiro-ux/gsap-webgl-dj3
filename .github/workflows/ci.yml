@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [claude/svelte-animation-course-BoKjQ, main]
+  pull_request:
+
+jobs:
+  check-build:
+    name: Type-check & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check          # svelte-check, TypeScript strict — must be 0 errors
+      - run: pnpm build          # adapter-static prerender of all routes
+
+  browser-verify:
+    name: Browser verification (software-GL)
+    needs: check-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: npx playwright install --with-deps chromium
+      # Serve the prerendered build and drive every route in a headless browser;
+      # fails the run on any console error / uncaught exception / failed request.
+      - run: |
+          python3 -m http.server 4178 --directory build &
+          npx wait-on http://localhost:4178 || sleep 3
+          node verify.mjs
+        env:
+          BASE: http://localhost:4178
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-screenshots
+          path: app/verify-shots/

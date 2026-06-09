@@ -69,12 +69,28 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm check      # svelte-check, TypeScript strict — 0 errors
 pnpm build      # static, prerendered output in app/build/
+pnpm verify     # drive every route in a headless browser; fail on any error
 ```
 
 The app uses **adapter‑static**, so `pnpm build` produces a fully prerendered,
 deployable site. Reusable building blocks live in `app/src/lib/` (components,
 the shared `gsap.ts` plugin registry, the `three/` scene primitives) and each
 lesson is a route under `app/src/routes/` with Prev/Next navigation.
+
+---
+
+## Verification & quality gates
+
+This isn't "it type-checks, ship it." CI (`.github/workflows/ci.yml`) runs three gates
+on every push: **`pnpm check`** (svelte-check, TS strict, 0 errors), **`pnpm build`**
+(prerender all routes), and **`pnpm verify`** — `app/verify.mjs` drives **every route in
+a real headless Chromium (software WebGL)** and fails on any console error, exception or
+failed request, screenshotting each for inspection.
+
+Result: **63 / 63 routes load clean**, and the WebGL/three/GSAP/D3 shaders are confirmed
+*rendering* (ocean, raymarched SDF, Gaussian splatting, reaction-diffusion, GPGPU
+particles, the GSAP capstones…), with WebGPU demos falling back gracefully where there's
+no GPU. Full methodology, evidence and the honest real-GPU caveat: **[VERIFICATION.md](./VERIFICATION.md)**.
 
 ---
 
