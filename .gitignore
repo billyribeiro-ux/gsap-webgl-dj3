@@ -20,3 +20,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Playwright verification screenshots (regenerable)
+app/verify-shots/
+app/test-results/

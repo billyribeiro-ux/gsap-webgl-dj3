@@ -24,6 +24,7 @@
     "@types/node": "^24.0.0",
     "@types/three": "^0.184.1",
     "@webgpu/types": "^0.1.70",
+    "playwright": "^1.60.0",
     "svelte": "^5.56.2",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",
